@@ -51,8 +51,8 @@ const SCENARIOS = {
   },
 };
 
-const VOLUME_ROWS = [500, 1000, 2500, 3000, 5000];
-const AMERICAR_RANGE = [2500, 3000];
+const VOLUME_ROWS = [1000, 2000, 3000];
+const AMERICAR_RANGE = [3000];
 
 function clp(v) {
   return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(v);
@@ -172,7 +172,7 @@ export default function Costos() {
         </div>
         <p className="text-xs text-slate-500 mt-4">
           * Conversión USD→CLP referencial ({USD_TO_CLP.toLocaleString("es-CL")} CLP/USD). Actualizar al tipo de cambio
-          del mes para el presupuesto oficial. Al volumen estimado de Americar (2.500–3.000 inspecciones/mes) conviene
+          del mes para el presupuesto oficial. Al volumen estimado de Americar (hasta 3.000 inspecciones/mes) conviene
           pedir pricing corporativo a Google Cloud + descuentos en Anthropic enterprise para bajar el ticket unitario.
         </p>
       </section>
@@ -191,7 +191,7 @@ export default function Costos() {
           />
           <LegendCard
             title="Fila destacada (AMERICAR)"
-            body="El rango real esperado de Americar es 2.500 a 3.000 inspecciones/mes. Esas filas están pintadas para que sea fácil ubicar el número relevante al presupuesto."
+            body="El volumen real esperado de Americar llega hasta 3.000 inspecciones/mes. Esa fila está pintada para que sea fácil ubicar el número relevante al presupuesto."
           />
         </div>
 
@@ -255,38 +255,36 @@ export default function Costos() {
             title="Producción con volumen"
             tag="★ recomendado"
             recommended
-            body="Mismo pipeline seguro del PAYG, pero con plan mensual de remove.bg (2.000 imágenes por $139, ≈ $0.07/img). A 2.500-3.000 inspecciones por mes es el escenario con mejor relación costo/seguridad."
+            body="Mismo pipeline seguro del PAYG, pero con plan mensual de remove.bg (2.000 imágenes por $139, ≈ $0.07/img). Hasta 3.000 inspecciones por mes es el escenario con mejor relación costo/seguridad."
           />
         </div>
 
         <div className="mt-4 rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-xs text-slate-400 leading-relaxed">
           <strong className="text-slate-200">Cómo leer la tabla:</strong> buscá la fila del volumen esperado
-          (2.500 o 3.000 para Americar) y mirá la columna destacada en verde (<strong>Producción con volumen</strong>).
+          (hasta 3.000 para Americar) y mirá la columna destacada en verde (<strong>Producción con volumen</strong>).
           Ese es el costo que deberías presupuestar. Los otros dos escenarios son para dimensionar el rango
           mínimo (sin segmentación) y máximo (PAYG) antes de negociar el plan con el proveedor.
         </div>
       </section>
 
       <section>
-        <h3 className="text-lg font-semibold mb-3">Escenario Americar — 2.500 a 3.000 inspecciones/mes</h3>
+        <h3 className="text-lg font-semibold mb-3">Escenario Americar — hasta 3.000 inspecciones/mes</h3>
         <div className="grid md:grid-cols-3 gap-4">
           {Object.entries(SCENARIOS).map(([id, s]) => {
-            const mLow = 2500 * s.perInspection;
-            const mHigh = 3000 * s.perInspection;
-            const yLow = mLow * 12;
-            const yHigh = mHigh * 12;
+            const m = 3000 * s.perInspection;
+            const y = m * 12;
             return (
               <div key={id} className={"rounded-xl p-5 border " + (id === "produccion-volumen" ? "bg-brand-500/10 border-brand-500/40" : "bg-slate-900 border-slate-800")}>
                 <div className="text-xs text-slate-500 uppercase tracking-wider">{s.label}</div>
                 <div className="mt-3">
-                  <div className="text-xs text-slate-400">Costo mensual (2.500 → 3.000)</div>
-                  <div className="text-xl font-bold text-brand-300 leading-tight">{clp(mLow * USD_TO_CLP)} <span className="text-slate-500 text-base">→</span> {clp(mHigh * USD_TO_CLP)}</div>
-                  <div className="text-xs text-slate-500 font-mono">{usd(mLow)} → {usd(mHigh)}</div>
+                  <div className="text-xs text-slate-400">Costo mensual (3.000 insp.)</div>
+                  <div className="text-2xl font-bold text-brand-300 leading-tight">{clp(m * USD_TO_CLP)}</div>
+                  <div className="text-xs text-slate-500 font-mono">{usd(m)}</div>
                 </div>
                 <div className="mt-3">
                   <div className="text-xs text-slate-400">Costo anual</div>
-                  <div className="text-base font-bold text-slate-100 leading-tight">{clp(yLow * USD_TO_CLP)} <span className="text-slate-500">→</span> {clp(yHigh * USD_TO_CLP)}</div>
-                  <div className="text-xs text-slate-500 font-mono">{usd(yLow)} → {usd(yHigh)}</div>
+                  <div className="text-xl font-bold text-slate-100 leading-tight">{clp(y * USD_TO_CLP)}</div>
+                  <div className="text-xs text-slate-500 font-mono">{usd(y)}</div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-400">
                   Costo por inspección: <span className="font-mono text-slate-300">{usd(s.perInspection, 3)}</span> · <span className="font-mono">{clp(s.perInspection * USD_TO_CLP)}</span>
@@ -318,8 +316,8 @@ export default function Costos() {
           <Compare
             title="Americar Photo AI (Nano Banana) — recomendado"
             items={[
-              "Escenario con volumen a 2.500 inspecciones: " + usd(2500 * SCENARIOS["produccion-volumen"].perInspection) + "/mes · " + clp(2500 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + "/mes",
-              "Escenario con volumen a 3.000 inspecciones: " + usd(3000 * SCENARIOS["produccion-volumen"].perInspection) + "/mes · " + clp(3000 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + "/mes",
+              "Escenario con volumen a 1.000 inspecciones: " + usd(1000 * SCENARIOS["produccion-volumen"].perInspection) + "/mes · " + clp(1000 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + "/mes",
+              "Escenario con volumen a 3.000 inspecciones (tope Americar): " + usd(3000 * SCENARIOS["produccion-volumen"].perInspection) + "/mes · " + clp(3000 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + "/mes",
               "Costo 100% variable: si no procesás, no pagás",
               "Integrado en portal_mf_inspection · pipeline propio · prompts controlados",
             ]}
