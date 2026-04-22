@@ -1,12 +1,16 @@
 import { useState } from "react";
 
-// Costos unitarios oficiales (referencia abril 2026).
+// Todos los precios oficiales de los proveedores (Anthropic, Google, remove.bg, Cloudflare)
+// están publicados en USD. Abajo se muestran también en CLP para referencia Americar.
+// Referencia abril 2026.
+const USD_TO_CLP = 960;
+
 // Claude Sonnet 4: input $3 / MTok · output $15 / MTok (Anthropic).
 // Una foto 1024² + prompt de análisis ≈ 1.600 input + 500 output tokens → ~$0.0123 / análisis.
 const CLAUDE_PER_ANALYSIS = 0.013;
-// Nano Banana (Gemini 2.5 Flash Image): $30 / 1M output tokens · 1.290 tokens por imagen generada → $0.039 / edición.
+// Nano Banana (Gemini 2.5 Flash Image): $30 / 1M output tokens · 1.290 tokens por imagen → $0.039 / edición.
 const GEMINI_PER_EDIT = 0.039;
-// remove.bg: API pay-as-you-go $0.20 / call; con plan 2000 imgs/mes baja a ~$0.07 (referencia).
+// remove.bg: PAYG $0.20 / call; plan 2000 imgs/mes ≈ $0.07 por imagen.
 const REMOVEBG_PAYG = 0.20;
 const REMOVEBG_VOLUME = 0.07;
 // Cloudflare Workers: free tier cubre 100k req/día; costo marginal por inspección ≈ 0.
@@ -47,12 +51,23 @@ const SCENARIOS = {
   },
 };
 
+const VOLUME_ROWS = [500, 2000, 5000, 7000];
+
+function clp(v) {
+  return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(v);
+}
+function usd(v, fraction = 2) {
+  return "$" + v.toFixed(fraction) + " USD";
+}
+
 export default function Costos() {
-  const [volume, setVolume] = useState(500);
+  const [volume, setVolume] = useState(7000);
   const [scenarioId, setScenarioId] = useState("produccion-volumen");
   const scenario = SCENARIOS[scenarioId];
-  const monthly = volume * scenario.perInspection;
-  const yearly = monthly * 12;
+  const monthlyUSD = volume * scenario.perInspection;
+  const yearlyUSD = monthlyUSD * 12;
+  const monthlyCLP = monthlyUSD * USD_TO_CLP;
+  const yearlyCLP = yearlyUSD * USD_TO_CLP;
 
   return (
     <div className="space-y-8">
@@ -62,6 +77,13 @@ export default function Costos() {
           Modelo 100% variable: una sola foto procesada por inspección (★ Frente Derecho).
           Sin infra fija: Cloudflare Workers y GitHub Pages free tier absorben el hosting.
         </p>
+        <div className="mt-4 rounded-xl bg-brand-600/10 border border-brand-500/40 p-4 text-sm text-slate-200">
+          <strong className="text-brand-300">Moneda:</strong> todos los proveedores (Anthropic, Google, remove.bg,
+          Cloudflare) publican sus precios en <strong>USD</strong>. En este tab se muestran los valores en USD
+          y su equivalente en <strong>CLP</strong> al tipo de cambio referencial{" "}
+          <code className="text-brand-300">1 USD = {USD_TO_CLP.toLocaleString("es-CL")} CLP</code> (abril 2026).
+          Para presupuesto oficial, actualizar al tipo de cambio del mes.
+        </div>
       </section>
 
       <section>
@@ -142,16 +164,83 @@ export default function Costos() {
             </label>
           </div>
           <div className="space-y-3">
-            <Stat label="Costo mensual estimado" value={`$${monthly.toFixed(2)} USD`} />
-            <Stat label="Costo anual estimado" value={`$${yearly.toFixed(2)} USD`} />
-            <Stat label="Costo por inspección" value={`$${scenario.perInspection.toFixed(3)} USD`} />
+            <Stat label="Costo mensual" usd={usd(monthlyUSD)} clp={clp(monthlyCLP)} />
+            <Stat label="Costo anual" usd={usd(yearlyUSD)} clp={clp(yearlyCLP)} />
+            <Stat label="Costo por inspección" usd={usd(scenario.perInspection, 3)} clp={clp(scenario.perInspection * USD_TO_CLP)} />
           </div>
         </div>
         <p className="text-xs text-slate-500 mt-4">
-          * Precios de referencia abril 2026: Anthropic Claude Sonnet 4, Google Gemini 2.5 Flash Image,
-          remove.bg (Kaleido), Cloudflare Workers. Al volumen de Americar conviene pedir pricing corporativo
-          a Google Cloud + descuentos en Anthropic por enterprise.
+          * Conversión USD→CLP referencial ({USD_TO_CLP.toLocaleString("es-CL")} CLP/USD). Actualizar al tipo de cambio
+          del mes para el presupuesto oficial. Al volumen de Americar (7.000 inspecciones/mes) conviene pedir pricing
+          corporativo a Google Cloud + descuentos en Anthropic enterprise.
         </p>
+      </section>
+
+      <section>
+        <h3 className="text-lg font-semibold mb-3">Proyección por volumen</h3>
+        <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs uppercase tracking-wide text-slate-500 bg-slate-950">
+              <tr>
+                <th className="text-left px-4 py-3">Inspecciones / mes</th>
+                {Object.entries(SCENARIOS).map(([id, s]) => (
+                  <th key={id} className="text-right px-4 py-3">{s.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {VOLUME_ROWS.map((v) => (
+                <tr key={v} className={v === 7000 ? "bg-brand-500/5" : ""}>
+                  <td className="px-4 py-3 font-semibold text-slate-200">
+                    {v.toLocaleString("es-CL")}
+                    {v === 7000 && <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand-500 text-slate-950">AMERICAR</span>}
+                  </td>
+                  {Object.entries(SCENARIOS).map(([id, s]) => {
+                    const m = v * s.perInspection;
+                    return (
+                      <td key={id} className="px-4 py-3 text-right">
+                        <div className="text-slate-200 font-mono">{usd(m)}</div>
+                        <div className="text-xs text-slate-500">{clp(m * USD_TO_CLP)} / mes</div>
+                        <div className="text-[11px] text-slate-600">{clp(m * USD_TO_CLP * 12)} / año</div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-slate-500 mt-2">
+          Fila destacada: volumen real esperado de Americar (7.000 inspecciones/mes · 84.000 anuales).
+        </p>
+      </section>
+
+      <section>
+        <h3 className="text-lg font-semibold mb-3">Escenario Americar — 7.000 inspecciones/mes</h3>
+        <div className="grid md:grid-cols-3 gap-4">
+          {Object.entries(SCENARIOS).map(([id, s]) => {
+            const m = 7000 * s.perInspection;
+            const y = m * 12;
+            return (
+              <div key={id} className={"rounded-xl p-5 border " + (id === "produccion-volumen" ? "bg-brand-500/10 border-brand-500/40" : "bg-slate-900 border-slate-800")}>
+                <div className="text-xs text-slate-500 uppercase tracking-wider">{s.label}</div>
+                <div className="mt-3">
+                  <div className="text-xs text-slate-400">Costo mensual</div>
+                  <div className="text-2xl font-bold text-brand-300">{clp(m * USD_TO_CLP)}</div>
+                  <div className="text-xs text-slate-500 font-mono">{usd(m)}</div>
+                </div>
+                <div className="mt-3">
+                  <div className="text-xs text-slate-400">Costo anual</div>
+                  <div className="text-xl font-bold text-slate-100">{clp(y * USD_TO_CLP)}</div>
+                  <div className="text-xs text-slate-500 font-mono">{usd(y)}</div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-400">
+                  Costo por inspección: <span className="font-mono text-slate-300">{usd(s.perInspection, 3)}</span> · <span className="font-mono">{clp(s.perInspection * USD_TO_CLP)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       <section>
@@ -161,19 +250,19 @@ export default function Costos() {
             title="Retoque manual (Photoshop)"
             items={[
               "15–25 min por foto",
-              "Editor externo: $3–$8 USD por foto",
-              "Depende de disponibilidad humana",
-              "Inconsistencia visual entre operadores",
+              "Editor externo: $3–$8 USD por foto (~2.880–7.680 CLP)",
+              "7.000 inspecciones/mes ≈ " + clp(7000 * 5 * USD_TO_CLP) + " (promedio $5 USD)",
+              "Depende de disponibilidad humana · inconsistencia entre operadores",
             ]}
             tone="slate"
           />
           <Compare
             title="Americar Photo AI (Nano Banana)"
             items={[
-              "30–60 segundos por inspección",
-              "$0.05–$0.26 USD por inspección según escenario",
-              "Disparo automático al guardar — disponible 24/7",
-              "Pipeline determinista con mismo prompt y segmentación",
+              "30–60 segundos por inspección (automático al guardar)",
+              "$0.052 USD/inspección sin segmentación · ~$0.122 con volumen",
+              "7.000 inspecciones/mes ≈ " + clp(7000 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + " (escenario recomendado)",
+              "Pipeline determinista · disponible 24/7 · preservación pixel-perfect",
             ]}
             tone="brand"
           />
@@ -190,10 +279,13 @@ function StageCard({ provider, stage, model, price, priceVolume, detail, pricing
         <div className="text-xs text-slate-500 uppercase tracking-wider">{provider} · {stage}</div>
       </div>
       <div className="text-base font-semibold mt-1">{model}</div>
-      <div className="text-3xl font-bold text-brand-300 mt-3">${price.toFixed(3)}</div>
-      <div className="text-xs text-slate-500">por imagen</div>
+      <div className="text-3xl font-bold text-brand-300 mt-3">${price.toFixed(3)} <span className="text-sm text-slate-500 font-normal">USD</span></div>
+      <div className="text-xs text-brand-500/80 font-mono">{clp(price * USD_TO_CLP)}</div>
+      <div className="text-xs text-slate-500 mt-1">por imagen</div>
       {priceVolume != null && (
-        <div className="text-xs text-brand-300 mt-1">con volumen: ${priceVolume.toFixed(2)}/img</div>
+        <div className="text-xs text-brand-300 mt-1">
+          con volumen: ${priceVolume.toFixed(2)} USD · {clp(priceVolume * USD_TO_CLP)} / img
+        </div>
       )}
       <p className="text-xs text-slate-400 mt-3 leading-relaxed">{detail}</p>
       <p className="text-[11px] text-slate-500 mt-2 font-mono">{pricing}</p>
@@ -214,8 +306,8 @@ function ScenarioCard({ active, onClick, label, desc, total, breakdown }) {
     >
       <div className="text-xs text-slate-500 uppercase tracking-wider">Escenario</div>
       <div className="font-semibold mt-1">{label}</div>
-      <div className="text-3xl font-bold text-brand-300 mt-3">${total.toFixed(3)}</div>
-      <div className="text-xs text-slate-500">por inspección</div>
+      <div className="text-3xl font-bold text-brand-300 mt-3">${total.toFixed(3)} <span className="text-sm text-slate-500 font-normal">USD</span></div>
+      <div className="text-xs text-brand-500/80 font-mono">{clp(total * USD_TO_CLP)} / inspección</div>
       <p className="text-xs text-slate-400 mt-3 leading-relaxed">{desc}</p>
       <ul className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-400 space-y-1">
         {breakdown.map((b) => (
@@ -229,11 +321,12 @@ function ScenarioCard({ active, onClick, label, desc, total, breakdown }) {
   );
 }
 
-function Stat({ label, value }) {
+function Stat({ label, usd, clp }) {
   return (
     <div className="rounded-lg bg-slate-950 border border-slate-800 p-4">
       <div className="text-xs text-slate-400 uppercase tracking-wide">{label}</div>
-      <div className="text-2xl font-bold text-brand-300 mt-1">{value}</div>
+      <div className="text-2xl font-bold text-brand-300 mt-1">{usd}</div>
+      <div className="text-sm text-slate-300 font-mono mt-0.5">{clp}</div>
     </div>
   );
 }
