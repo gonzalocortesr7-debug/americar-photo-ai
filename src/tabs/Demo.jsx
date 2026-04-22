@@ -106,13 +106,12 @@ export default function Demo() {
       />
 
       <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs p-3 leading-relaxed">
-        <strong>Nota:</strong> este demo técnico llama a un pipeline IA directo (gpt-image-1 edits) — útil para ver
-        el concepto end-to-end, pero puede introducir leves desviaciones de orientación o “pulido” del auto. En el
-        pipeline de producción, el stack cambia: <em>segmentación primero</em> con remove.bg para cutout 1:1 del
-        auto + <strong>Nano Banana (Google Gemini)</strong> para correcciones locales acotadas por máscara —
-        elimina estructuralmente el riesgo de mirror y rejuvenecimiento. Además, la captura se hace con{" "}
-        <code>react-webcam</code> y silueta de encuadre dentro del MF <code>portal_mf_inspection</code>, no como
-        demo standalone. Ver tabs <strong>Stack Actual</strong>, <strong>Arquitectura</strong> y{" "}
+        <strong>Nota:</strong> este demo llama al Cloudflare Worker conectado a{" "}
+        <strong>Nano Banana (Gemini 2.5 Flash Image)</strong>. Sigue siendo IA directa (sin la segmentación
+        remove.bg que describe el Pipeline IA de producción), así que aún pueden aparecer desviaciones menores.
+        En producción, la captura vive dentro del MF <code>portal_mf_inspection</code> con{" "}
+        <code>react-webcam</code> + silueta de encuadre, y el pipeline agrega cutout 1:1 del auto antes de la
+        edición con máscaras. Ver tabs <strong>Stack Actual</strong>, <strong>Arquitectura</strong> y{" "}
         <strong>Pipeline IA</strong>.
       </div>
 

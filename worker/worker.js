@@ -83,7 +83,7 @@ export default {
       if (action === "generate") {
         if (!body.image) return json({ error: "missing image" }, 400, cors);
         if (!body.prompt) return json({ error: "missing prompt" }, 400, cors);
-        const image = await editWithOpenAI(env, body.image, body.mime, body.prompt, body.size, body.quality);
+        const image = await editWithNanoBanana(env, body.image, body.mime, body.prompt);
         return json({ image }, 200, cors);
       }
 
@@ -91,8 +91,8 @@ export default {
         if (!body.image) return json({ error: "missing image" }, 400, cors);
         const analysis = await analyzeWithClaude(env, body.image, body.mime);
         const prompt = buildEditPrompt(analysis, body.logoText);
-        const image = await editWithOpenAI(env, body.image, body.mime, prompt, body.size, body.quality);
-        return json({ image, analysis, promptUsed: prompt }, 200, cors);
+        const image = await editWithNanoBanana(env, body.image, body.mime, prompt);
+        return json({ image, analysis, promptUsed: prompt, editor: "gemini-2.5-flash-image" }, 200, cors);
       }
 
       return json({ error: "unknown action" }, 400, cors);
@@ -144,32 +144,53 @@ async function analyzeWithClaude(env, imageB64, mime) {
   }
 }
 
-async function editWithOpenAI(env, imageB64, mime, prompt, size, quality) {
-  const allowedSizes = ["auto", "1024x1024", "1536x1024", "1024x1536"];
-  const outSize = allowedSizes.includes(size) ? size : "auto";
-  const outQuality = ["low", "medium", "high"].includes(quality) ? quality : "high";
+async function editWithNanoBanana(env, imageB64, mime, prompt) {
+  if (!env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY not configured on worker — run `npx wrangler secret put GEMINI_API_KEY`.");
+  }
+  const model = "gemini-2.5-flash-image";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-  const bytes = base64ToBytes(imageB64);
-  const blob = new Blob([bytes], { type: mime || "image/jpeg" });
-
-  const form = new FormData();
-  form.append("model", "gpt-image-1");
-  form.append("prompt", prompt);
-  form.append("n", "1");
-  form.append("size", outSize);
-  form.append("quality", outQuality);
-  form.append("image", blob, "input." + ((mime || "image/jpeg").split("/")[1] || "jpg"));
-
-  const res = await fetch("https://api.openai.com/v1/images/edits", {
+  const res = await fetch(url, {
     method: "POST",
-    headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}` },
-    body: form,
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": env.GEMINI_API_KEY,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: mime || "image/jpeg", data: imageB64 } },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ["IMAGE"],
+        temperature: 0.2,
+      },
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+      ],
+    }),
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || `openai ${res.status}`);
-  const b64 = data?.data?.[0]?.b64_json;
-  if (!b64) throw new Error("no image returned from images.edits: " + JSON.stringify(data).slice(0, 400));
+  if (!res.ok) {
+    throw new Error(data?.error?.message || `gemini ${res.status}: ${JSON.stringify(data).slice(0, 300)}`);
+  }
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const imagePart = parts.find((p) => p.inline_data || p.inlineData);
+  const b64 = imagePart?.inline_data?.data || imagePart?.inlineData?.data;
+  if (!b64) {
+    const reason = data?.candidates?.[0]?.finishReason || "unknown";
+    throw new Error(`Nano Banana no devolvió imagen (finishReason: ${reason}). Respuesta: ${JSON.stringify(data).slice(0, 400)}`);
+  }
   return b64;
 }
 
