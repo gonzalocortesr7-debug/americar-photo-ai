@@ -3,4 +3,4 @@ main = "worker.js"
 compatibility_date = "2025-01-01"
 
 [vars]
-ALLOWED_ORIGIN = "https://TU-USUARIO.github.io"
+ALLOWED_ORIGIN = "https://gonzalocortesr7-debug.github.io"
