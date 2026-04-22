@@ -7,16 +7,18 @@ export default function Resumen() {
           <div>
             <h3 className="font-semibold text-brand-300">Alcance acotado</h3>
             <p className="text-slate-200 text-sm mt-1 leading-relaxed">
-              Toda esta propuesta se integra <strong>exclusivamente</strong> dentro del
-              <span className="text-brand-300"> Portal Americar → Formulario de Inspección → paso 10 “Fotografías del Vehículo”</span>.
-              No es una app aparte ni un portal paralelo: son mejoras sobre la pestaña de fotos que el inspector ya usa hoy.
+              Se mantiene el mismo backoffice actual de Americar (<code className="text-brand-300">backoffice.americar.com</code>) y el
+              mismo micro-frontend <code className="text-brand-300">portal_mf_inspection</code>. El inspector sigue haciendo la
+              inspección desde su teléfono tal cual como hoy. La propuesta se integra <strong>exclusivamente</strong> en el{" "}
+              <span className="text-brand-300">paso 10 “Fotografías del Vehículo”</span>, sin agregar pantallas ni apps nuevas.
+              Ver tab <em>Stack Actual</em> para el detalle de libs y arquitectura que se respetan.
             </p>
             <p className="text-slate-300 text-sm mt-2 leading-relaxed">
-              El procesamiento con IA se dispara <strong>al finalizar la inspección</strong> (cuando el inspector presiona
-              <em> Guardar</em>) y corre <strong>sobre una sola foto: la de publicación</strong>, siempre del mismo ángulo
-              (<span className="text-brand-300">Frente Derecho</span>). En la UI del inspector este slot queda destacado
-              con el badge <em>★ Foto de publicación</em> para que sea obvio cuál va al aviso. Las otras 13 fotos quedan
-              intactas como respaldo de la inspección.
+              En cada slot, la cámara del teléfono muestra una <strong>silueta de encuadre</strong> del ángulo esperado —
+              estilo verificación facial pero vehicular. Al <em>Guardar</em> la inspección, el pipeline IA
+              (<strong className="text-brand-300">Nano Banana</strong> + segmentación) corre <strong>solo sobre la foto de
+              publicación</strong> (★ Frente Derecho, ángulo fijo para toda la flota) y devuelve al portal la versión
+              procesada lista para publicar. Las otras 13 fotos quedan intactas como respaldo.
             </p>
           </div>
         </div>

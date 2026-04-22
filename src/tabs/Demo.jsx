@@ -106,11 +106,14 @@ export default function Demo() {
       />
 
       <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs p-3 leading-relaxed">
-        <strong>Nota:</strong> este demo llama a un pipeline IA directo (gpt-image-1 edits) que puede introducir
-        leves desviaciones de orientación o “pulido” del auto. En el pipeline de producción, la arquitectura es
-        <em> segmentación primero</em> (cutout pixel-perfect del auto con remove.bg) + inpainting acotado a
-        máscaras — lo que hace imposible el mirror y el rejuvenecimiento. Ver tab{" "}
-        <strong>Pipeline IA</strong> para el detalle.
+        <strong>Nota:</strong> este demo técnico llama a un pipeline IA directo (gpt-image-1 edits) — útil para ver
+        el concepto end-to-end, pero puede introducir leves desviaciones de orientación o “pulido” del auto. En el
+        pipeline de producción, el stack cambia: <em>segmentación primero</em> con remove.bg para cutout 1:1 del
+        auto + <strong>Nano Banana (Google Gemini)</strong> para correcciones locales acotadas por máscara —
+        elimina estructuralmente el riesgo de mirror y rejuvenecimiento. Además, la captura se hace con{" "}
+        <code>react-webcam</code> y silueta de encuadre dentro del MF <code>portal_mf_inspection</code>, no como
+        demo standalone. Ver tabs <strong>Stack Actual</strong>, <strong>Arquitectura</strong> y{" "}
+        <strong>Pipeline IA</strong>.
       </div>
 
       {/* Área de trabajo: slot seleccionado */}

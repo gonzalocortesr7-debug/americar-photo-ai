@@ -2,94 +2,96 @@ export default function Arquitectura() {
   return (
     <div className="space-y-8">
       <section className="rounded-xl bg-brand-600/10 border border-brand-500/40 p-4 text-sm text-slate-200">
-        <strong className="text-brand-300">Punto de integración único:</strong> Portal Americar →
-        Formulario de Inspección → paso 10 <em>“Fotografías del Vehículo”</em>. El pipeline IA se
-        activa al presionar <em>Guardar</em> y corre solo sobre la foto de publicación
-        (<strong>Frente Derecho</strong>, ángulo fijo para toda la flota). El slot aparece destacado
-        con el badge <em>★ Foto de publicación</em> en la UI del inspector.
+        <strong className="text-brand-300">Punto de integración único:</strong> micro-frontend{" "}
+        <code className="text-brand-300">portal_mf_inspection</code> del backoffice Americar (paso 10 “Fotografías
+        del Vehículo”). No se construye una app nueva ni un portal paralelo: se suma captura guiada con silueta
+        sobre la cámara del teléfono y un disparador IA al guardar la inspección. El BFF existente{" "}
+        <code>api.americar.tech</code> gana un único endpoint nuevo.
       </section>
 
       <section>
         <h2 className="text-2xl font-semibold mb-3">Diagrama</h2>
         <div className="rounded-xl bg-slate-900 border border-slate-800 p-6 overflow-x-auto">
           <pre className="text-xs text-slate-300 leading-relaxed">{`
- ┌──────────────────────────────┐
- │   Portal Americar            │
- │   Formulario de Inspección   │
- │   ├─ …                       │
- │   ├─ 10. Fotografías (14)    │◄── único touchpoint
- │   │     └─ ★ Frente Derecho  │   foto de publicación
- │   └─ 11. Fotos adicionales   │
- └──────────────┬───────────────┘
+ 📱 Inspector en terreno (teléfono)
+ │
+ ▼
+ ┌───────────────────────────────────────────┐
+ │  Backoffice Americar — Module Federation  │
+ │  shell: portal_mf_app                     │
+ │  └─ MF: portal_mf_inspection              │
+ │     (React 18 · RHF · Yup · HeroIcons)    │
+ │                                           │
+ │     Paso 10 · Fotografías del vehículo    │
+ │     ├─ 14 slots (HOY: <input file>)       │
+ │     ├─ + react-webcam + silueta SVG       │
+ │     └─ ★ Frente Derecho = FOTO PUBLICACIÓN│
+ └──────────────┬────────────────────────────┘
                 │  [Guardar inspección]
+                │  POST /inspection/:id/publication-photo
                 ▼
- ┌──────────────────────────────┐
- │   Cloudflare Worker          │
- │   (orquestador del pipeline) │
- └──┬──────┬──────┬──────┬──────┘
-    │      │      │      │
-    ▼      ▼      ▼      ▼
- ┌────┐ ┌──────────┐ ┌─────────┐ ┌──────────┐
- │ 1. │ │ 2.       │ │ 3.      │ │ 4.       │
- │Cla │ │Segment.  │ │Inpaint  │ │Canvas    │
- │JSON│ │cutout    │ │IA masks │ │compose   │
- │    │ │(auto     │ │(sucio + │ │(fondo    │
- │    │ │preservado│ │reflejos)│ │+ auto +  │
- │    │ │1:1)      │ │         │ │sombra +  │
- │    │ │          │ │         │ │ patente) │
- └────┘ └──────────┘ └─────────┘ └──────────┘
-   │         │           │            │
-   ▼         ▼           ▼            ▼
- Anthropic remove.bg  gpt-image-1  Worker WASM
- Claude 4  type=car   images.edits  Sharp / Canvas
-                      (con máscara)
-
+ ┌───────────────────────────────────────────┐
+ │  BFF · api.americar.tech                  │
+ │  (nuevo endpoint orquestador)             │
+ └──────────────┬────────────────────────────┘
+                │
                 ▼
- ┌──────────────────────────────┐
- │   Portal Americar            │
- │   Aviso publicado            │  ◄── mismo auto, mismo lado, fondo studio
- └──────────────────────────────┘
+ ┌───────────────────────────────────────────┐
+ │  Cloudflare Worker — pipeline IA          │
+ │  1. Claude Sonnet 4 → JSON factual        │
+ │  2. remove.bg type=car → cutout 1:1       │
+ │  3. Nano Banana (Gemini) → correcciones   │
+ │     acotadas por máscara                  │
+ │  4. Canvas compose → estudio + sombra     │
+ │  5. Overlay patente + logo                │
+ └──────────────┬────────────────────────────┘
+                │
+                ▼
+ ┌───────────────────────────────────────────┐
+ │  Storage del portal (R2 / S3)             │
+ │  Aviso publicable con foto procesada      │
+ └───────────────────────────────────────────┘
 `}</pre>
         </div>
       </section>
 
       <section>
-        <h2 className="text-2xl font-semibold mb-3">Stack tecnológico</h2>
+        <h2 className="text-2xl font-semibold mb-3">Integración con el stack existente</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <StackCard
-            title="Frontend (Portal Americar)"
+            title="Dentro del MF portal_mf_inspection"
             items={[
-              "Sin UI nueva: se reutiliza paso 10 del formulario de inspección",
-              "Slot Frente Derecho destacado con badge ★ Foto de publicación",
-              "Al guardar, dispara POST al Worker con esa única foto",
-              "Fallback: si el pipeline falla, queda la foto original en el aviso",
+              "Se respeta: React 18, React Hook Form, Yup, HeroIcons v2, clsx, CSS Modules, Webpack Module Federation",
+              "Se suma: react-webcam + @tanstack/react-query + browser-image-compression + @sentry/react",
+              "Slot ★ Frente Derecho destacado con badge como foto de publicación",
+              "Al guardar, dispara un único POST al BFF; resto del flujo igual que hoy",
             ]}
           />
           <StackCard
-            title="Backend (proxy)"
+            title="Backend / BFF"
             items={[
-              "Cloudflare Workers (serverless)",
-              "Secret binding para claves OpenAI / Anthropic",
-              "CORS restringido al dominio del Portal Americar",
-              "1 llamada a Claude + 1 a gpt-image-1 por inspección",
+              "Endpoint nuevo: POST /inspection/:id/publication-photo",
+              "Orquesta al Worker Cloudflare (proxy + pipeline IA)",
+              "Webhook de estado: pending → processing → done → error",
+              "Storage: foto procesada reemplaza la principal del aviso; las 13 restantes intactas",
             ]}
           />
           <StackCard
-            title="IA / Visión"
+            title="Pipeline IA (Cloudflare Worker)"
             items={[
-              "Claude Sonnet 4 — análisis factual (orientación, zonas sucias, patente)",
-              "remove.bg — segmentación type=car: el auto sale 1:1 del fondo",
-              "gpt-image-1 images.edits — inpainting acotado por máscaras",
-              "Canvas / Sharp — compositing final en el Worker",
+              "Claude Sonnet 4 — análisis factual: lado visible, wear a preservar, patente",
+              "remove.bg (type=car) — cutout pixel-perfect del auto",
+              "Nano Banana (Google Gemini image generation) — correcciones acotadas por máscara",
+              "Canvas / Sharp @ Worker — compositing del estudio virtual y overlay de patente",
             ]}
           />
           <StackCard
-            title="Seguridad"
+            title="Captura guiada (UX móvil)"
             items={[
-              "Claves de IA nunca expuestas al navegador",
-              "Rate limiting + quota por inspector",
-              "Dominio allowlist en CORS (solo portal.americar.tech)",
-              "Auditoría: original + procesada + prompt guardados",
+              "Stream de cámara con react-webcam dentro del MF",
+              "Silueta SVG del ángulo por slot superpuesta (como face-ID pero vehicular)",
+              "14 siluetas: frente, frente 3/4 izq/der, laterales, posteriores, llantas, tablero, panel",
+              "Validación de encuadre básica antes de aceptar la toma",
             ]}
           />
         </div>
@@ -98,12 +100,12 @@ export default function Arquitectura() {
       <section>
         <h2 className="text-2xl font-semibold mb-3">Por qué esta arquitectura</h2>
         <ul className="text-slate-300 space-y-2 list-disc pl-6">
-          <li><strong>Segmentación primero, IA después:</strong> imposible que el auto salga espejado, rotado o rejuvenecido — sus pixeles nunca pasan por un modelo generativo completo.</li>
-          <li><strong>IA acotada a máscaras:</strong> gpt-image-1 solo ve y toca las zonas sucias, los reflejos y el fondo; el resto del auto permanece 1:1.</li>
-          <li><strong>Cero cambios de flujo para el inspector:</strong> sigue cargando fotos en el paso 10 como hoy.</li>
-          <li><strong>Un solo punto de disparo:</strong> al guardar la inspección; nada que pedir por fuera.</li>
-          <li><strong>Separación cliente/servidor:</strong> las claves de OpenAI/Anthropic viven solo en el Worker.</li>
-          <li><strong>Sin infra propia:</strong> ni servidores ni contenedores; todo serverless.</li>
+          <li><strong>Cero disrupción para el inspector:</strong> sigue usando el mismo backoffice en el mismo teléfono. Solo aparece la silueta de encuadre y el badge de la foto de publicación.</li>
+          <li><strong>Compatibilidad con Module Federation:</strong> todas las libs nuevas se bundlean dentro del MF sin tocar el shell.</li>
+          <li><strong>Segmentación primero, IA después:</strong> los pixeles del auto se preservan 1:1 vía cutout. Nano Banana solo toca lo enmascarado. Imposible mirror o rejuvenecimiento.</li>
+          <li><strong>Nano Banana como editor IA:</strong> preserva identidad del sujeto mejor que alternativas y soporta ediciones localizadas por máscara.</li>
+          <li><strong>Un solo nuevo endpoint en el BFF:</strong> mínimo cambio en <code>api.americar.tech</code>.</li>
+          <li><strong>Fallback seguro:</strong> si el pipeline IA falla, la foto original del slot Frente Derecho es la que queda en el aviso.</li>
         </ul>
       </section>
     </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Resumen from "./tabs/Resumen.jsx";
+import Stack from "./tabs/Stack.jsx";
 import Arquitectura from "./tabs/Arquitectura.jsx";
 import Pipeline from "./tabs/Pipeline.jsx";
 import Demo from "./tabs/Demo.jsx";
@@ -8,6 +9,7 @@ import Roadmap from "./tabs/Roadmap.jsx";
 
 const TABS = [
   { id: "resumen", label: "Resumen", component: Resumen },
+  { id: "stack", label: "Stack Actual", component: Stack },
   { id: "arquitectura", label: "Arquitectura", component: Arquitectura },
   { id: "pipeline", label: "Pipeline IA", component: Pipeline },
   { id: "demo", label: "Demo", component: Demo },

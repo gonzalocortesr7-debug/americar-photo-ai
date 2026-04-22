@@ -1,55 +1,68 @@
 const PHASES = [
   {
     phase: "Fase 1",
-    name: "Pipeline de procesamiento",
+    name: "Quick wins sobre portal_mf_inspection",
     duration: "Semanas 1-3",
     status: "now",
     items: [
-      "Backend Cloudflare Worker proxeando a Claude Sonnet 4 + gpt-image-1",
-      "Pipeline de compositing en canvas: fondo estudio + auto preservado + sombra + logo",
-      "Preservación 100% de pixeles del vehículo (no regeneración)",
-      "Overlay de logo Americar sobre patente (manual o detectado)",
-      "Reemplazo de la foto original por la procesada en el storage del portal",
+      "Migrar fetch() del formulario a @tanstack/react-query (caching, retry, prefetching del catálogo marcas/modelos/versiones)",
+      "Skeleton screens por sección con react-loading-skeleton",
+      "Compresión client-side de fotos con browser-image-compression antes del upload (60-80% menos bytes)",
+      "Preview post-upload (objectURL) — hoy no hay galería",
+      "Integrar @sentry/react con ErrorBoundary por MF",
     ],
   },
   {
     phase: "Fase 2",
-    name: "Fotografía mejorada — Captura guiada",
+    name: "Captura guiada + pipeline IA (scope de esta propuesta)",
     duration: "Semanas 4-8",
     status: "next",
     items: [
-      "Componente CaptureView dentro del paso 10 con overlay de silueta por cada uno de los 14 slots",
-      "Botón dual en cada slot: Capturar (cámara) + Subir (galería)",
-      "Catálogo de siluetas por slot: frente, frente 3/4, laterales, llantas, tablero, panel",
-      "Lightbox con zoom para revisar fotos capturadas (react-photo-view)",
-      "Crop tool post-captura con aspect ratio fijo (react-image-crop)",
-      "Disparo del pipeline IA al Guardar la inspección (POST batch + webhook por slot)",
-      "Slider antes/después en la galería de la inspección para validación comercial",
-      "Impacto: fotos estandarizadas + pipeline IA activado sin cambiar el flujo del inspector",
+      "Componente CaptureView con react-webcam dentro del MF, overlay de silueta SVG por ángulo (14 slots)",
+      "Botón dual por slot: Capturar (cámara con silueta) + Subir (galería)",
+      "Slot ★ Frente Derecho destacado como FOTO DE PUBLICACIÓN en la UI del inspector",
+      "Nuevo endpoint en BFF: POST /inspection/:id/publication-photo",
+      "Cloudflare Worker orquestando: Claude (análisis) → remove.bg (cutout) → Nano Banana (correcciones por máscara) → Canvas compose (estudio + patente)",
+      "Lightbox con react-photo-view y crop post-captura con react-image-crop (aspect fijo)",
+      "Slider antes/después con react-compare-slider para verificar la foto procesada",
+      "Webhook de estado: pending → processing → done → error",
     ],
   },
   {
     phase: "Fase 3",
-    name: "Procesamiento en lote + integración portal",
+    name: "UX del formulario",
     duration: "Semanas 9-12",
     status: "later",
     items: [
-      "Cola de procesamiento por inspección (14 fotos en paralelo con control de concurrencia)",
-      "Webhook de estado por slot: pending → processing → done → error",
-      "Persistencia automática en el storage del portal reemplazando la foto original",
-      "Dashboard de métricas: inspecciones procesadas, costo por inspección, tasa de aceptación",
+      "Transiciones entre las 11 secciones con framer-motion",
+      "Validación inline real-time con @hookform/resolvers (ya hay RHF + Yup)",
+      "Select con búsqueda async para marca/modelo/versión con react-select",
+      "Formateo numérico con react-number-format para km y precios",
+      "Barra de progreso por sección + auto-save cada 30s",
     ],
   },
   {
     phase: "Fase 4",
-    name: "Detección automática y optimizaciones",
-    duration: "Open",
+    name: "Resiliencia & offline",
+    duration: "Semanas 13-16",
     status: "later",
     items: [
-      "Detección automática de patente (YOLO / Roboflow) con fallback manual",
-      "Preset de fondos alternativos (exterior outdoor, garaje premium, etc.)",
-      "Retoque automático de suciedad puntual con máscara (Flux Kontext o similar)",
-      "Watermark configurable por concesionaria o segmento",
+      "Service Worker con workbox-webpack-plugin para cache de assets del MF",
+      "Auto-save del formulario en IndexedDB con idb-keyval (inspector en zonas con mala señal)",
+      "Queue de uploads pendientes con retry automático",
+      "Indicador de estado de conexión en la UI",
+    ],
+  },
+  {
+    phase: "Fase 5",
+    name: "Dashboard supervisión",
+    duration: "Semanas 17-20",
+    status: "later",
+    items: [
+      "Dashboard de inspecciones: completadas, pendientes, promedio/día (recharts)",
+      "Métricas de calidad fotográfica: % aprobadas por el pipeline IA",
+      "Ranking de inspectores por velocidad y calidad de foto de publicación",
+      "Tendencias semanales y mensuales",
     ],
   },
 ];
@@ -66,15 +79,18 @@ export default function Roadmap() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold mb-1">Roadmap</h2>
-        <p className="text-slate-400 text-sm">Plan de implementación en 4 fases incrementales a 12 semanas.</p>
+        <p className="text-slate-400 text-sm">
+          Plan de 20 semanas en 5 fases, alineado con la auditoría del backoffice actual. Cada fase vive dentro del MF{" "}
+          <code>portal_mf_inspection</code> sin romper Module Federation.
+        </p>
       </div>
 
       <div className="rounded-xl bg-brand-600/10 border border-brand-500/40 p-4 text-sm text-slate-200">
         <strong className="text-brand-300">Alcance del roadmap:</strong> todas las fases se implementan dentro
-        del paso 10 <em>“Fotografías del Vehículo”</em> del Formulario de Inspección. El disparador es el
-        <strong> Guardar</strong> de la inspección y la IA corre únicamente sobre la
-        <strong> ★ Foto de publicación</strong> (Frente Derecho, ángulo fijo para toda la flota) —
-        destacada visualmente en la UI del inspector.
+        del paso 10 <em>“Fotografías del Vehículo”</em> del Formulario de Inspección existente. El disparador del
+        pipeline IA es el <strong>Guardar</strong> de la inspección y corre únicamente sobre la
+        <strong> ★ Foto de publicación</strong> (Frente Derecho, ángulo fijo para toda la flota) — destacada
+        visualmente en la UI del inspector.
       </div>
 
       <ol className="relative border-l border-slate-800 ml-3 space-y-6">
@@ -103,10 +119,11 @@ export default function Roadmap() {
       <div className="rounded-xl bg-slate-900/60 border border-brand-700/40 p-5">
         <h3 className="font-semibold text-brand-300 mb-2">Próximo paso inmediato</h3>
         <p className="text-slate-300 text-sm">
-          Crear cuenta en remove.bg y obtener API key, reescribir Worker para llamar a
-          su endpoint con <code className="text-brand-300">type=car</code>, y validar el
-          resultado del compositing con una foto real (SsangYong Tivoli de referencia).
-          Una vez aprobado el output visual, arrancamos Fase 2.
+          Validar con el equipo de backoffice el nuevo endpoint{" "}
+          <code className="text-brand-300">POST /inspection/:id/publication-photo</code> en el BFF, integrar{" "}
+          <code>react-webcam</code> dentro del slot Frente Derecho con silueta SVG de referencia, y cablear el pipeline
+          del Cloudflare Worker con Nano Banana + remove.bg. Una vez validado el output con inspecciones reales
+          (SsangYong Tivoli y similares), activamos el resto de los slots.
         </p>
       </div>
     </div>
