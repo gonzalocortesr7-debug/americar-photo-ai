@@ -33,12 +33,12 @@ export default function App() {
             </div>
           </div>
           <a
-            href="https://platform.openai.com/docs/guides/images"
+            href="https://ai.google.dev/gemini-api/docs/image-generation"
             target="_blank"
             rel="noreferrer"
             className="text-xs text-slate-400 hover:text-brand-300"
           >
-            OpenAI gpt-image-1 ↗
+            Nano Banana · Gemini 2.5 Flash Image ↗
           </a>
         </div>
 

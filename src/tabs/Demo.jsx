@@ -172,7 +172,7 @@ export default function Demo() {
               <ol className="text-xs text-slate-400 space-y-1 list-decimal pl-5">
                 <li>Claude analiza marca, modelo, color, ángulo/lado, suciedad, reflejos, patente.</li>
                 <li>Claude genera un prompt que <strong>solo</strong> pide: corregir luces, quitar suciedad, atenuar reflejos, tapar patente, poner fondo de cabina virtual.</li>
-                <li>gpt-image-1 aplica las correcciones sin espejar, sin rotar y sin rejuvenecer el auto.</li>
+                <li>Nano Banana (Gemini 2.5 Flash Image) aplica las correcciones sin espejar, sin rotar y sin rejuvenecer el auto.</li>
               </ol>
               <button
                 onClick={process}
@@ -189,7 +189,7 @@ export default function Demo() {
           <div className="rounded-xl bg-slate-950 border border-slate-800 p-6 text-center">
             <div className="inline-block w-8 h-8 border-2 border-slate-700 border-t-brand-500 rounded-full animate-spin" />
             <p className="text-slate-400 text-sm mt-3">
-              Procesando la inspección… Claude analiza + gpt-image-1 aplica. En producción este paso es batch sobre las 14 fotos.
+              Procesando la inspección… Claude analiza + Nano Banana (Gemini 2.5 Flash Image) aplica. En producción se suma el cutout con remove.bg antes de la edición.
             </p>
           </div>
         )}
