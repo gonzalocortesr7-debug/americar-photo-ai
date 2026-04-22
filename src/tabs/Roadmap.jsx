@@ -1,70 +1,64 @@
 const PHASES = [
   {
     phase: "Fase 1",
-    name: "MVP funcional",
-    duration: "1 semana",
-    status: "done",
+    name: "Pipeline de procesamiento",
+    duration: "Semanas 1-3",
+    status: "now",
     items: [
-      "Upload de foto + marcado manual de patente",
-      "Integración OpenAI gpt-image-1 vía Worker",
-      "Overlay del logo Americar en la zona de la patente",
-      "Descarga del JPG final",
+      "Backend Cloudflare Worker proxeando a Claude Sonnet 4 + gpt-image-1",
+      "Pipeline de compositing en canvas: fondo estudio + auto preservado + sombra + logo",
+      "Preservación 100% de pixeles del vehículo (no regeneración)",
+      "Overlay de logo Americar sobre patente (manual o detectado)",
+      "Reemplazo de la foto original por la procesada en el storage del portal",
     ],
   },
   {
     phase: "Fase 2",
-    name: "Hardening y despliegue",
-    duration: "1 semana",
-    status: "now",
+    name: "Fotografía mejorada — Captura guiada",
+    duration: "Semanas 4-8",
+    status: "next",
     items: [
-      "Deploy del Worker en Cloudflare con secret",
-      "Publicación del frontend en GitHub Pages",
-      "CORS restringido al dominio de producción",
-      "Rate limiting básico por IP",
+      "Componente CaptureView dentro del paso 10 con overlay de silueta por cada uno de los 14 slots",
+      "Botón dual en cada slot: Capturar (cámara) + Subir (galería)",
+      "Catálogo de siluetas por slot: frente, frente 3/4, laterales, llantas, tablero, panel",
+      "Lightbox con zoom para revisar fotos capturadas (react-photo-view)",
+      "Crop tool post-captura con aspect ratio fijo (react-image-crop)",
+      "Disparo del pipeline IA al Guardar la inspección (POST batch + webhook por slot)",
+      "Slider antes/después en la galería de la inspección para validación comercial",
+      "Impacto: fotos estandarizadas + pipeline IA activado sin cambiar el flujo del inspector",
     ],
   },
   {
     phase: "Fase 3",
-    name: "Detección automática de patente",
-    duration: "2 semanas",
-    status: "next",
+    name: "Procesamiento en lote + integración portal",
+    duration: "Semanas 9-12",
+    status: "later",
     items: [
-      "Modelo YOLO / Roboflow para detección automática",
-      "Fallback manual si la confianza es baja",
-      "A/B contra el flujo manual para medir mejora",
+      "Cola de procesamiento por inspección (14 fotos en paralelo con control de concurrencia)",
+      "Webhook de estado por slot: pending → processing → done → error",
+      "Persistencia automática en el storage del portal reemplazando la foto original",
+      "Dashboard de métricas: inspecciones procesadas, costo por inspección, tasa de aceptación",
     ],
   },
   {
     phase: "Fase 4",
-    name: "Procesamiento en lote",
-    duration: "2 semanas",
-    status: "next",
-    items: [
-      "Upload de zip con múltiples fotos",
-      "Cola de procesamiento con progreso",
-      "Descarga zip con resultados",
-      "Integración opcional con el backoffice del portal",
-    ],
-  },
-  {
-    phase: "Fase 5",
-    name: "Optimizaciones avanzadas",
-    duration: "open",
+    name: "Detección automática y optimizaciones",
+    duration: "Open",
     status: "later",
     items: [
-      "Máscara (inpainting) para no alterar el vehículo",
-      "Preset de fondos alternativos (exterior, garaje)",
-      "Métricas: tiempo por foto, costo mensual, tasa de aceptación",
-      "Watermark configurable por concesionaria",
+      "Detección automática de patente (YOLO / Roboflow) con fallback manual",
+      "Preset de fondos alternativos (exterior outdoor, garaje premium, etc.)",
+      "Retoque automático de suciedad puntual con máscara (Flux Kontext o similar)",
+      "Watermark configurable por concesionaria o segmento",
     ],
   },
 ];
 
 const STATUS = {
-  done: { label: "Completado", color: "bg-brand-500 text-slate-950" },
-  now: { label: "En curso", color: "bg-amber-400 text-slate-950" },
-  next: { label: "Siguiente", color: "bg-slate-700 text-slate-200" },
-  later: { label: "Backlog", color: "bg-slate-800 text-slate-400" },
+  done: { label: "Completado", color: "bg-brand-500 text-slate-950", dot: "bg-brand-500" },
+  now: { label: "En curso", color: "bg-amber-400 text-slate-950", dot: "bg-amber-400" },
+  next: { label: "Siguiente", color: "bg-sky-500 text-slate-950", dot: "bg-sky-500" },
+  later: { label: "Backlog", color: "bg-slate-700 text-slate-200", dot: "bg-slate-700" },
 };
 
 export default function Roadmap() {
@@ -72,7 +66,15 @@ export default function Roadmap() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold mb-1">Roadmap</h2>
-        <p className="text-slate-400 text-sm">Plan de implementación en 5 fases incrementales.</p>
+        <p className="text-slate-400 text-sm">Plan de implementación en 4 fases incrementales a 12 semanas.</p>
+      </div>
+
+      <div className="rounded-xl bg-brand-600/10 border border-brand-500/40 p-4 text-sm text-slate-200">
+        <strong className="text-brand-300">Alcance del roadmap:</strong> todas las fases se implementan dentro
+        del paso 10 <em>“Fotografías del Vehículo”</em> del Formulario de Inspección. El disparador es el
+        <strong> Guardar</strong> de la inspección y la IA corre únicamente sobre la
+        <strong> ★ Foto de publicación</strong> (Frente Derecho, ángulo fijo para toda la flota) —
+        destacada visualmente en la UI del inspector.
       </div>
 
       <ol className="relative border-l border-slate-800 ml-3 space-y-6">
@@ -80,7 +82,7 @@ export default function Roadmap() {
           const s = STATUS[p.status];
           return (
             <li key={p.phase} className="pl-6">
-              <span className={"absolute -left-2.5 w-5 h-5 rounded-full border-2 border-slate-950 " + s.color.split(" ")[0]} />
+              <span className={"absolute -left-2.5 w-5 h-5 rounded-full border-2 border-slate-950 " + s.dot} />
               <div className="rounded-xl bg-slate-900 border border-slate-800 p-5">
                 <div className="flex items-start justify-between flex-wrap gap-2">
                   <div>
@@ -99,11 +101,12 @@ export default function Roadmap() {
       </ol>
 
       <div className="rounded-xl bg-slate-900/60 border border-brand-700/40 p-5">
-        <h3 className="font-semibold text-brand-300 mb-2">Próximo paso para validar</h3>
+        <h3 className="font-semibold text-brand-300 mb-2">Próximo paso inmediato</h3>
         <p className="text-slate-300 text-sm">
-          Desplegar el Worker en Cloudflare con tu API key de OpenAI y probar
-          con 10-20 fotos reales del catálogo actual. Con eso ajustamos el prompt
-          y evaluamos pasar a Fase 3.
+          Crear cuenta en remove.bg y obtener API key, reescribir Worker para llamar a
+          su endpoint con <code className="text-brand-300">type=car</code>, y validar el
+          resultado del compositing con una foto real (SsangYong Tivoli de referencia).
+          Una vez aprobado el output visual, arrancamos Fase 2.
         </p>
       </div>
     </div>

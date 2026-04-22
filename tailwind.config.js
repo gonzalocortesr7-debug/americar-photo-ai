@@ -5,12 +5,19 @@ export default {
     extend: {
       colors: {
         brand: {
-          50: "#eafff2",
-          100: "#c8ffdc",
-          300: "#6feaa0",
-          500: "#22c55e",
-          600: "#16a34a",
-          700: "#15803d",
+          50: "#f0fdfa",
+          100: "#ccfbf1",
+          300: "#5eead4",
+          500: "#14b8a6",
+          600: "#0d9488",
+          700: "#0f766e",
+        },
+        portal: {
+          bg: "#ffffff",
+          sidebar: "#0b0b0b",
+          accent: "#14b8a6",
+          border: "#14b8a6",
+          ink: "#0f172a",
         },
       },
       fontFamily: {

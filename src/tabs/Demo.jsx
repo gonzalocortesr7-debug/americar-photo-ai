@@ -2,266 +2,451 @@ import { useEffect, useRef, useState } from "react";
 
 const LS_WORKER = "americar.workerUrl";
 
+const PUBLICATION_SLOT = "frente-der";
+
+const SLOTS = [
+  { id: "frente-izq", label: "Frente Izquierdo" },
+  { id: "frente", label: "Frente" },
+  { id: "frente-der", label: "Frente Derecho" },
+  { id: "lateral-der", label: "Lateral Derecho" },
+  { id: "posterior-der", label: "Posterior Derecho" },
+  { id: "posterior", label: "Posterior" },
+  { id: "posterior-izq", label: "Posterior Izquierdo" },
+  { id: "lateral-izq", label: "Lateral Izquierdo" },
+  { id: "llanta-del-izq", label: "Llanta delantera izquierda" },
+  { id: "llanta-del-der", label: "Llanta delantera derecha" },
+  { id: "llanta-tra-der", label: "Llanta trasera derecha" },
+  { id: "llanta-tra-izq", label: "Llanta trasera izquierda" },
+  { id: "tablero", label: "Tablero" },
+  { id: "panel", label: "Panel de instrumentos" },
+];
+
 export default function Demo() {
-  const [workerUrl, setWorkerUrl] = useState(localStorage.getItem(LS_WORKER) || "");
-  const [quality, setQuality] = useState("medium");
+  const [workerUrl, setWorkerUrl] = useState(
+    localStorage.getItem(LS_WORKER) || "https://americar-photo.gonzalocortesr7.workers.dev"
+  );
+  const [logoText, setLogoText] = useState("CLICAR");
   const [file, setFile] = useState(null);
-  const [imgEl, setImgEl] = useState(null);
-  const [plateRect, setPlateRect] = useState(null);
-  const [processing, setProcessing] = useState(false);
-  const [resultReady, setResultReady] = useState(false);
+  const [imageB64, setImageB64] = useState(null);
+  const [mime, setMime] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [activeSlot, setActiveSlot] = useState(PUBLICATION_SLOT);
+
+  const [phase, setPhase] = useState("idle");
+  const [analysis, setAnalysis] = useState(null);
+  const [resultB64, setResultB64] = useState(null);
   const [error, setError] = useState("");
-  const [scale, setScale] = useState(1);
+  const fileRef = useRef(null);
 
-  const markCanvas = useRef(null);
-  const resultCanvas = useRef(null);
-  const logoRef = useRef(null);
-
-  useEffect(() => {
-    const img = new Image();
-    img.src = "./americar-logo.png";
-    img.onload = () => (logoRef.current = img);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(LS_WORKER, workerUrl);
-  }, [workerUrl]);
+  useEffect(() => { localStorage.setItem(LS_WORKER, workerUrl); }, [workerUrl]);
 
   const onFile = (e) => {
-    setError("");
-    setResultReady(false);
-    setPlateRect(null);
     const f = e.target.files?.[0];
     if (!f) return;
-    setFile(f);
-    const img = new Image();
-    img.onload = () => setImgEl(img);
-    img.src = URL.createObjectURL(f);
-  };
-
-  useEffect(() => {
-    if (!imgEl || !markCanvas.current) return;
-    const canvas = markCanvas.current;
-    const ctx = canvas.getContext("2d");
-    const maxW = Math.min(window.innerWidth - 80, 900);
-    const s = Math.min(1, maxW / imgEl.width);
-    setScale(s);
-    canvas.width = imgEl.width * s;
-    canvas.height = imgEl.height * s;
-    ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
-
-    let drawing = false, start = null, rect = null;
-    const pos = (e) => {
-      const r = canvas.getBoundingClientRect();
-      const cx = e.touches ? e.touches[0].clientX : e.clientX;
-      const cy = e.touches ? e.touches[0].clientY : e.clientY;
-      return { x: (cx - r.left) * (canvas.width / r.width), y: (cy - r.top) * (canvas.height / r.height) };
-    };
-    const redraw = () => {
-      ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
-      if (rect) {
-        ctx.strokeStyle = "#22c55e"; ctx.lineWidth = 3; ctx.setLineDash([8, 4]);
-        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h); ctx.setLineDash([]);
-        ctx.fillStyle = "rgba(34,197,94,0.15)";
-        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
-      }
-    };
-    const down = (e) => { e.preventDefault(); drawing = true; start = pos(e); };
-    const move = (e) => {
-      if (!drawing) return; e.preventDefault();
-      const p = pos(e);
-      rect = { x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w: Math.abs(p.x - start.x), h: Math.abs(p.y - start.y) };
-      redraw();
-    };
-    const up = () => {
-      drawing = false;
-      if (rect && rect.w > 10 && rect.h > 5) setPlateRect(rect);
-    };
-    canvas.onmousedown = down; canvas.onmousemove = move; canvas.onmouseup = up; canvas.onmouseleave = up;
-    canvas.ontouchstart = down; canvas.ontouchmove = move; canvas.ontouchend = up;
-  }, [imgEl]);
-
-  const pickSize = (w, h) => {
-    const r = w / h;
-    if (r > 1.3) return "1536x1024";
-    if (r < 0.77) return "1024x1536";
-    return "1024x1024";
-  };
-
-  const toB64 = (f) => new Promise((res, rej) => {
+    setError(""); setAnalysis(null); setResultB64(null); setPhase("idle");
+    setFile(f); setMime(f.type); setPreview(URL.createObjectURL(f));
     const r = new FileReader();
-    r.onload = () => { const s = r.result; res(s.substring(s.indexOf(",") + 1)); };
-    r.onerror = rej; r.readAsDataURL(f);
-  });
+    r.onload = () => { const s = r.result; setImageB64(s.substring(s.indexOf(",") + 1)); };
+    r.readAsDataURL(f);
+  };
 
   const process = async () => {
-    if (!workerUrl) return setError("Falta la URL del Worker en la configuración abajo.");
-    if (!plateRect) return setError("Marcá la patente primero.");
-    setProcessing(true); setError(""); setResultReady(false);
+    if (!imageB64) return;
+    setPhase("processing"); setError("");
     try {
-      const size = pickSize(imgEl.width, imgEl.height);
-      const b64 = await toB64(file);
       const res = await fetch(workerUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: b64, mime: file.type, size, quality }),
+        body: JSON.stringify({ action: "process", image: imageB64, mime, logoText, quality: "high" }),
       });
-      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
-      const { image } = await res.json();
-      await renderResult(image, size);
-      setResultReady(true);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(body.error || res.statusText);
+      }
+      const data = await res.json();
+      setAnalysis(data.analysis);
+      setResultB64(data.image);
+      setPhase("done");
     } catch (e) {
       setError(e.message || String(e));
-    } finally {
-      setProcessing(false);
+      setPhase("idle");
     }
   };
 
-  const renderResult = (b64, size) => new Promise((resolve) => {
-    const [W, H] = size.split("x").map(Number);
-    const canvas = resultCanvas.current;
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, W, H);
-      const r = plateRect;
-      const sx = W / (imgEl.width * scale);
-      const sy = H / (imgEl.height * scale);
-      const px = r.x * sx, py = r.y * sy, pw = r.w * sx, ph = r.h * sy;
-      const pad = Math.max(pw, ph) * 0.1;
-      roundRect(ctx, px - pad, py - pad, pw + pad * 2, ph + pad * 2, 8);
-      ctx.fillStyle = "#ffffff"; ctx.fill();
-      if (logoRef.current) drawLogoFit(ctx, logoRef.current, px - pad, py - pad, pw + pad * 2, ph + pad * 2);
-      resolve();
-    };
-    img.src = "data:image/png;base64," + b64;
-  });
-
   const download = () => {
+    if (!resultB64) return;
     const link = document.createElement("a");
-    link.download = `americar-${Date.now()}.jpg`;
-    link.href = resultCanvas.current.toDataURL("image/jpeg", 0.92);
+    link.download = `americar-${Date.now()}.png`;
+    link.href = "data:image/png;base64," + resultB64;
     link.click();
   };
 
+  const reset = () => {
+    setFile(null); setImageB64(null); setPreview(null); setMime(null);
+    setAnalysis(null); setResultB64(null); setPhase("idle"); setError("");
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-semibold mb-1">Demo interactiva</h2>
-        <p className="text-slate-400 text-sm">Subí una foto, marcá la patente y procesá con gpt-image-1.</p>
+        <p className="text-slate-400 text-sm">
+          Así se ve integrado en el <strong className="text-brand-300">paso 10 “Fotografías del Vehículo”</strong> del Portal Americar.
+          El procesamiento IA corre <strong className="text-brand-300">solo sobre la foto de publicación</strong> (Frente Derecho),
+          marcada en la UI para que el inspector sepa cuál es la que va a aparecer en el aviso.
+        </p>
       </div>
 
-      <div className="rounded-xl bg-slate-900 border border-slate-800 p-5">
-        <label className="block text-sm font-medium mb-2">1. Subí una foto del vehículo</label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={onFile}
-          className="block w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-brand-500 file:text-slate-950 file:font-semibold hover:file:bg-brand-300"
-        />
+      {/* Mock del Portal Americar — paso 10 */}
+      <PortalMock
+        activeSlot={activeSlot}
+        publicationSlot={PUBLICATION_SLOT}
+        onSlotClick={(id) => { setActiveSlot(id); if (fileRef.current) fileRef.current.click(); }}
+      />
+
+      <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs p-3 leading-relaxed">
+        <strong>Nota:</strong> este demo llama a un pipeline IA directo (gpt-image-1 edits) que puede introducir
+        leves desviaciones de orientación o “pulido” del auto. En el pipeline de producción, la arquitectura es
+        <em> segmentación primero</em> (cutout pixel-perfect del auto con remove.bg) + inpainting acotado a
+        máscaras — lo que hace imposible el mirror y el rejuvenecimiento. Ver tab{" "}
+        <strong>Pipeline IA</strong> para el detalle.
       </div>
 
-      {imgEl && (
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-5 space-y-3">
-          <label className="block text-sm font-medium">2. Marcá la patente arrastrando el mouse</label>
-          <div className="bg-black rounded-lg flex justify-center max-h-[70vh] overflow-auto">
-            <canvas ref={markCanvas} className="cursor-crosshair block max-w-full" />
+      {/* Área de trabajo: slot seleccionado */}
+      <div className="rounded-xl bg-slate-900 border border-slate-800 p-5 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider">Slot activo</div>
+              <div className="text-lg font-semibold text-brand-300">
+                {SLOTS.find((s) => s.id === activeSlot)?.label}
+              </div>
+            </div>
+            {activeSlot === PUBLICATION_SLOT && (
+              <span className="ml-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-bold bg-brand-500 text-white px-2 py-1 rounded-full">
+                ★ Foto de publicación
+              </span>
+            )}
           </div>
-          <div className="flex gap-3 flex-wrap items-center">
-            <button
-              onClick={process}
-              disabled={!plateRect || processing}
-              className="bg-brand-500 hover:bg-brand-300 disabled:opacity-40 text-slate-950 font-semibold px-5 py-2 rounded-lg"
-            >
-              {processing ? "Procesando…" : "3. Procesar con IA"}
-            </button>
-            {plateRect && <span className="text-xs text-slate-400">Patente marcada ✓</span>}
+          <div className="text-xs text-slate-500 max-w-sm text-right">
+            Ángulo fijo para toda la flota: <strong>Frente Derecho</strong>.
+            Es la única foto que atraviesa el pipeline IA al guardar la inspección.
           </div>
         </div>
-      )}
 
-      {error && (
-        <div className="rounded-lg bg-red-500/10 border border-red-500/40 text-red-300 px-4 py-3 text-sm">
-          {error}
-        </div>
-      )}
+        {!file && (
+          <div className="space-y-3">
+            <label className="block text-sm">
+              <span className="text-slate-400">Texto sobre la patente (overlay post-IA)</span>
+              <input
+                type="text"
+                value={logoText}
+                onChange={(e) => setLogoText(e.target.value)}
+                placeholder='Ej: "CLICAR" o "SALAZAR ISRAEL | CLICAR"'
+                className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block text-sm font-medium mt-2">Subí la foto de este slot</label>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              onChange={onFile}
+              className="block w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-brand-500 file:text-white file:font-semibold hover:file:bg-brand-600"
+            />
+          </div>
+        )}
 
-      {processing && (
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-6 text-center">
-          <div className="inline-block w-8 h-8 border-2 border-slate-700 border-t-brand-500 rounded-full animate-spin" />
-          <p className="text-slate-400 text-sm mt-3">Procesando… 20–60 segundos.</p>
-        </div>
-      )}
-
-      <div className={resultReady ? "" : "hidden"}>
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-5 space-y-4">
-          <h3 className="font-semibold">4. Resultado</h3>
+        {file && !resultB64 && phase === "idle" && (
           <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-slate-400 mb-1">Original</p>
-              {file && <img src={URL.createObjectURL(file)} alt="" className="w-full rounded-lg bg-black" />}
+            <div className="rounded-xl bg-slate-950 border border-slate-800 p-3">
+              <img src={preview} alt="" className="w-full rounded-lg bg-black" />
             </div>
-            <div>
-              <p className="text-xs text-slate-400 mb-1">Procesada</p>
-              <canvas ref={resultCanvas} className="w-full rounded-lg bg-black" />
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-slate-300">
+                Al <strong>Guardar</strong> la inspección se ejecuta únicamente sobre la foto de publicación (<strong className="text-brand-300">Frente Derecho</strong>):
+              </p>
+              <ol className="text-xs text-slate-400 space-y-1 list-decimal pl-5">
+                <li>Claude analiza marca, modelo, color, ángulo/lado, suciedad, reflejos, patente.</li>
+                <li>Claude genera un prompt que <strong>solo</strong> pide: corregir luces, quitar suciedad, atenuar reflejos, tapar patente, poner fondo de cabina virtual.</li>
+                <li>gpt-image-1 aplica las correcciones sin espejar, sin rotar y sin rejuvenecer el auto.</li>
+              </ol>
+              <button
+                onClick={process}
+                className="bg-brand-500 hover:bg-brand-600 text-white font-semibold px-5 py-2.5 rounded-lg mt-2 inline-flex items-center justify-center gap-2"
+              >
+                <CheckIcon /> Simular “Guardar inspección”
+              </button>
+              <button onClick={reset} className="text-xs text-slate-400 hover:text-slate-200">Cambiar foto</button>
             </div>
           </div>
-          <button
-            onClick={download}
-            className="bg-brand-500 hover:bg-brand-300 text-slate-950 font-semibold px-5 py-2 rounded-lg"
-          >
-            Descargar JPG
-          </button>
-        </div>
+        )}
+
+        {phase === "processing" && (
+          <div className="rounded-xl bg-slate-950 border border-slate-800 p-6 text-center">
+            <div className="inline-block w-8 h-8 border-2 border-slate-700 border-t-brand-500 rounded-full animate-spin" />
+            <p className="text-slate-400 text-sm mt-3">
+              Procesando la inspección… Claude analiza + gpt-image-1 aplica. En producción este paso es batch sobre las 14 fotos.
+            </p>
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-lg bg-red-500/10 border border-red-500/40 text-red-300 px-4 py-3 text-sm">
+            {error}
+          </div>
+        )}
+
+        {resultB64 && (
+          <div className="space-y-4">
+            {analysis?.vehicle && (
+              <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                <Stat k="Marca" v={analysis.vehicle.brand} />
+                <Stat k="Modelo" v={analysis.vehicle.model} />
+                <Stat k="Color" v={analysis.vehicle.color} />
+                <Stat k="Carrocería" v={analysis.vehicle.bodyType} />
+                <Stat k="Ángulo" v={analysis.vehicle.angle} />
+                {analysis.issues?.plateText && <Stat k="Patente detectada" v={analysis.issues.plateText} />}
+              </div>
+            )}
+            <div className="rounded-xl bg-slate-950 border border-slate-800 p-5 space-y-4">
+              <div className="text-xs text-slate-500 uppercase tracking-wider">Resultado (slot {activeSlot})</div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Original (la que carga el inspector)</p>
+                  <img src={preview} alt="" className="w-full rounded-lg bg-black" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Procesada (la que va al aviso)</p>
+                  <img src={"data:image/png;base64," + resultB64} alt="" className="w-full rounded-lg bg-black" />
+                </div>
+              </div>
+
+              <ChangesApplied analysis={analysis} />
+
+              <div className="flex gap-3 flex-wrap">
+                <button onClick={download} className="bg-brand-500 hover:bg-brand-600 text-white font-semibold px-5 py-2 rounded-lg">
+                  Descargar PNG
+                </button>
+                <button onClick={reset} className="border border-slate-700 hover:border-brand-500 text-slate-300 px-5 py-2 rounded-lg">
+                  Probar otra foto
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <details className="rounded-xl bg-slate-900/60 border border-slate-800 p-4">
         <summary className="cursor-pointer text-sm text-slate-300 font-medium">Configuración</summary>
-        <div className="mt-4 space-y-3">
-          <label className="block text-sm">
-            <span className="text-slate-400">URL del Cloudflare Worker</span>
-            <input
-              type="text"
-              value={workerUrl}
-              onChange={(e) => setWorkerUrl(e.target.value.trim())}
-              placeholder="https://americar-photo.tu-subdominio.workers.dev"
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="text-slate-400">Calidad</span>
-            <select
-              value={quality}
-              onChange={(e) => setQuality(e.target.value)}
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-sm"
-            >
-              <option value="low">Baja (~$0.02)</option>
-              <option value="medium">Media (~$0.07)</option>
-              <option value="high">Alta (~$0.19)</option>
-            </select>
-          </label>
-        </div>
+        <label className="block text-sm mt-3">
+          <span className="text-slate-400">URL del Cloudflare Worker</span>
+          <input
+            type="text"
+            value={workerUrl}
+            onChange={(e) => setWorkerUrl(e.target.value.trim())}
+            className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-sm"
+          />
+        </label>
       </details>
     </div>
   );
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+function PortalMock({ activeSlot, publicationSlot, onSlotClick }) {
+  return (
+    <div className="rounded-xl overflow-hidden border border-slate-800 shadow-lg">
+      {/* Header Portal Americar */}
+      <div className="bg-[#0b0b0b] text-white px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-full bg-brand-500 flex items-center justify-center text-slate-950 text-xs font-bold">A</div>
+          <span className="font-semibold tracking-wide text-sm">PORTAL AMERICAR</span>
+        </div>
+        <span className="text-xs text-slate-400">gonzalo.cortes@americar.tech</span>
+      </div>
+
+      {/* Cuerpo con sidebar + contenido */}
+      <div className="flex bg-slate-100 text-portal-ink">
+        <aside className="w-64 bg-slate-50 border-r border-slate-200 p-3 text-xs space-y-1 hidden md:block">
+          {[
+            "1 · Detalles del auto",
+            "2 · Exterior",
+            "3 · Interior",
+            "4 · Electrónica y seguridad",
+            "5 · Suspensión y frenos",
+            "6 · Motor y transmisión",
+            "7 · Llantas",
+            "8 · Chasis",
+            "9 · Scan",
+            "10 · Fotografías del vehículo",
+            "11 · Fotografías adicionales",
+          ].map((s) => {
+            const active = s.startsWith("10");
+            return (
+              <div
+                key={s}
+                className={
+                  "px-3 py-2 rounded-md border " +
+                  (active
+                    ? "bg-brand-500 text-white border-brand-500 font-semibold"
+                    : "bg-white border-slate-200 text-slate-600")
+                }
+              >
+                {s}
+              </div>
+            );
+          })}
+        </aside>
+
+        <div className="flex-1 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-base font-bold text-slate-800">FOTOGRAFÍAS DEL VEHÍCULO</h3>
+            <span className="text-sm font-semibold text-brand-600">10/11</span>
+          </div>
+          <div className="mb-3 rounded-md bg-brand-50 border border-brand-500/40 px-3 py-1.5 text-[11px] text-brand-700 flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-500 text-white text-[10px] font-bold">★</span>
+            <span>
+              La foto marcada con <strong>★ Foto de publicación</strong> (Frente Derecho) es la única que
+              se procesa con IA y la que aparecerá en el aviso. Ángulo fijo para toda la flota.
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+            {SLOTS.map((s) => {
+              const active = s.id === activeSlot;
+              const isPub = s.id === publicationSlot;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => onSlotClick(s.id)}
+                  className={
+                    "relative aspect-[4/3] rounded-md border-2 flex flex-col items-center justify-center text-[10px] text-center p-1 transition " +
+                    (isPub
+                      ? "border-brand-500 bg-brand-500/10 text-brand-700 ring-2 ring-brand-500 shadow-[0_0_0_3px_rgba(20,184,166,0.15)]"
+                      : active
+                        ? "border-brand-500 bg-brand-50 text-brand-700 ring-2 ring-brand-300"
+                        : "border-brand-500/60 bg-white text-brand-700 hover:bg-brand-50")
+                  }
+                >
+                  {isPub && (
+                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-brand-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap shadow">
+                      ★ FOTO DE PUBLICACIÓN
+                    </span>
+                  )}
+                  <CameraIcon />
+                  <span className="mt-1 font-semibold leading-tight">Cargar Foto</span>
+                  <span className="leading-tight">{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <button className="px-4 py-1.5 rounded-md bg-slate-200 text-slate-700 text-xs font-semibold">Anterior</button>
+            <button
+              className="px-4 py-1.5 rounded-md bg-brand-500 text-white text-xs font-semibold inline-flex items-center gap-1"
+              title="En producción, al guardar la inspección se dispara el pipeline sobre los 14 slots"
+            >
+              <CheckIcon /> Guardar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function drawLogoFit(ctx, img, x, y, w, h) {
-  const pad = Math.min(w, h) * 0.15;
-  const boxW = w - pad * 2, boxH = h - pad * 2;
-  const ratio = img.width / img.height;
-  let dw = boxW, dh = dw / ratio;
-  if (dh > boxH) { dh = boxH; dw = dh * ratio; }
-  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+function ChangesApplied({ analysis }) {
+  const plate = analysis?.issues?.plateText || analysis?.issues?.hasPlate;
+  const doneItems = [
+    {
+      title: "Iluminación corregida",
+      desc: "Exposición pareja; se quitaron las zonas quemadas y las sombras duras que ocultaban el color real.",
+    },
+    {
+      title: "Suciedad removida",
+      desc: "Se eliminó polvo, barro, manchas y restos de cera/agua de la carrocería y los vidrios.",
+    },
+    {
+      title: "Reflejos y brillos neutralizados",
+      desc: "Se atenuaron los reflejos del ambiente (luces, personas, cartelería) que no corresponden al auto.",
+    },
+    {
+      title: "Patente tapada",
+      desc: plate
+        ? `Se cubrió la patente detectada${analysis?.issues?.plateText ? ` (${analysis.issues.plateText})` : ""} con un cuadro + logo Americar.`
+        : "Se aplicó un cuadro con logo Americar sobre el área de patente.",
+    },
+    {
+      title: "Fondo de cabina virtual",
+      desc: "Se reemplazó el fondo original por un estudio gris claro con piso reflectante.",
+    },
+  ];
+  const preservedItems = [
+    "Mismo vehículo: marca, modelo, color y carrocería idénticos.",
+    "Mismo ángulo y mismo lado: si era Frente Derecho, sigue siendo Frente Derecho (no se espeja ni rota).",
+    "Mismo estado del auto: rayones, golpes, llantas y desgaste del original se mantienen.",
+  ];
+
+  return (
+    <div className="rounded-xl bg-slate-900 border border-brand-700/40 p-4 space-y-4">
+      <div>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h4 className="font-semibold text-brand-300 text-sm uppercase tracking-wide">¿Qué se le hizo a la foto?</h4>
+          <span className="text-[10px] text-slate-500">Transformaciones aplicadas por el pipeline</span>
+        </div>
+        <ul className="space-y-2">
+          {doneItems.map((i) => (
+            <li key={i.title} className="flex items-start gap-3 text-sm">
+              <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-brand-500 text-slate-950 flex items-center justify-center">
+                <CheckIcon />
+              </span>
+              <div>
+                <div className="font-semibold text-slate-200">{i.title}</div>
+                <div className="text-xs text-slate-400">{i.desc}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="border-t border-slate-800 pt-3">
+        <h4 className="font-semibold text-slate-300 text-xs uppercase tracking-wide mb-2">Lo que NO se tocó</h4>
+        <ul className="space-y-1.5">
+          {preservedItems.map((t) => (
+            <li key={t} className="flex items-start gap-2 text-xs text-slate-400">
+              <span className="mt-1 shrink-0 w-1.5 h-1.5 rounded-full bg-slate-500" />
+              <span>{t}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function Stat({ k, v }) {
+  return (
+    <div>
+      <div className="text-xs text-slate-500 uppercase tracking-wide">{k}</div>
+      <div className="text-slate-200">{v || "—"}</div>
+    </div>
+  );
 }
