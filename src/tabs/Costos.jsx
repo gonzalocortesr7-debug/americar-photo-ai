@@ -179,14 +179,40 @@ export default function Costos() {
 
       <section>
         <h3 className="text-lg font-semibold mb-3">Proyección por volumen</h3>
+
+        <div className="grid md:grid-cols-3 gap-3 mb-4">
+          <LegendCard
+            title="Qué muestra esta tabla"
+            body="Cuánto cuesta procesar con IA la foto de publicación de cada inspección, según cuántas inspecciones haga Americar por mes. Cada celda tiene el monto mensual (USD + CLP) y el proyectado anual."
+          />
+          <LegendCard
+            title="Por qué 3 escenarios"
+            body="Son 3 combinaciones posibles del pipeline IA. Lo único que cambia entre ellas es si se agrega o no remove.bg (segmentación del auto) y, si se agrega, si se paga por llamada o con plan al volumen."
+          />
+          <LegendCard
+            title="Fila destacada (AMERICAR)"
+            body="El rango real esperado de Americar es 2.500 a 3.000 inspecciones/mes. Esas filas están pintadas para que sea fácil ubicar el número relevante al presupuesto."
+          />
+        </div>
+
         <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-xs uppercase tracking-wide text-slate-500 bg-slate-950">
               <tr>
                 <th className="text-left px-4 py-3">Inspecciones / mes</th>
-                {Object.entries(SCENARIOS).map(([id, s]) => (
-                  <th key={id} className="text-right px-4 py-3">{s.label}</th>
-                ))}
+                {Object.entries(SCENARIOS).map(([id, s]) => {
+                  const recommended = id === "produccion-volumen";
+                  return (
+                    <th key={id} className={"text-right px-4 py-3 " + (recommended ? "bg-brand-500/20 text-brand-200" : "")}>
+                      <div className="flex flex-col items-end gap-1">
+                        {recommended && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand-500 text-slate-950">★ RECOMENDADO</span>
+                        )}
+                        <span>{s.label}</span>
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -198,11 +224,12 @@ export default function Costos() {
                   </td>
                   {Object.entries(SCENARIOS).map(([id, s]) => {
                     const m = v * s.perInspection;
+                    const recommended = id === "produccion-volumen";
                     return (
-                      <td key={id} className="px-4 py-3 text-right">
-                        <div className="text-slate-200 font-mono">{usd(m)}</div>
-                        <div className="text-xs text-slate-500">{clp(m * USD_TO_CLP)} / mes</div>
-                        <div className="text-[11px] text-slate-600">{clp(m * USD_TO_CLP * 12)} / año</div>
+                      <td key={id} className={"px-4 py-3 text-right " + (recommended ? "bg-brand-500/10" : "")}>
+                        <div className={"font-mono " + (recommended ? "text-brand-200 font-bold" : "text-slate-200")}>{usd(m)}</div>
+                        <div className={"text-xs " + (recommended ? "text-brand-300/80" : "text-slate-500")}>{clp(m * USD_TO_CLP)} / mes</div>
+                        <div className={"text-[11px] " + (recommended ? "text-brand-300/60" : "text-slate-600")}>{clp(m * USD_TO_CLP * 12)} / año</div>
                       </td>
                     );
                   })}
@@ -211,9 +238,33 @@ export default function Costos() {
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-slate-500 mt-2">
-          Filas destacadas: rango real esperado de Americar (2.500–3.000 inspecciones/mes · 30.000–36.000 anuales).
-        </p>
+
+        <div className="grid md:grid-cols-3 gap-4 mt-4">
+          <ScenarioExplainer
+            title="Sin segmentación"
+            tag="más barato"
+            body="El Worker manda la foto directo a Claude (análisis) y a Nano Banana (edición). Es el flujo del demo actual. No hay garantía estructural de que el auto no se modifique: la IA podría espejar, rotar o rejuvenecer. Útil para pilotos y para avisos internos."
+          />
+          <ScenarioExplainer
+            title="Producción PAYG"
+            tag="seguro, caro"
+            highlighted
+            body="Agrega remove.bg (pay-as-you-go $0.20/img) para recortar el auto antes de que Nano Banana lo toque. El auto queda 1:1 — imposible que cambie orientación o wear. Costo alto por llamada."
+          />
+          <ScenarioExplainer
+            title="Producción con volumen"
+            tag="★ recomendado"
+            recommended
+            body="Mismo pipeline seguro del PAYG, pero con plan mensual de remove.bg (2.000 imágenes por $139, ≈ $0.07/img). A 2.500-3.000 inspecciones por mes es el escenario con mejor relación costo/seguridad."
+          />
+        </div>
+
+        <div className="mt-4 rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-xs text-slate-400 leading-relaxed">
+          <strong className="text-slate-200">Cómo leer la tabla:</strong> buscá la fila del volumen esperado
+          (2.500 o 3.000 para Americar) y mirá la columna destacada en verde (<strong>Producción con volumen</strong>).
+          Ese es el costo que deberías presupuestar. Los otros dos escenarios son para dimensionar el rango
+          mínimo (sin segmentación) y máximo (PAYG) antes de negociar el plan con el proveedor.
+        </div>
       </section>
 
       <section>
@@ -330,6 +381,37 @@ function Stat({ label, usd, clp }) {
       <div className="text-xs text-slate-400 uppercase tracking-wide">{label}</div>
       <div className="text-2xl font-bold text-brand-300 mt-1">{usd}</div>
       <div className="text-sm text-slate-300 font-mono mt-0.5">{clp}</div>
+    </div>
+  );
+}
+
+function LegendCard({ title, body }) {
+  return (
+    <div className="rounded-xl bg-slate-900 border border-slate-800 p-4">
+      <div className="text-xs font-semibold text-brand-300 uppercase tracking-wider mb-1">{title}</div>
+      <p className="text-xs text-slate-300 leading-relaxed">{body}</p>
+    </div>
+  );
+}
+
+function ScenarioExplainer({ title, tag, body, highlighted, recommended }) {
+  const border = recommended
+    ? "bg-brand-500/10 border-brand-500 ring-2 ring-brand-500/30"
+    : highlighted
+      ? "bg-slate-900 border-amber-500/40"
+      : "bg-slate-900 border-slate-800";
+  const tagClass = recommended
+    ? "bg-brand-500 text-slate-950"
+    : highlighted
+      ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+      : "bg-slate-800 text-slate-300";
+  return (
+    <div className={"rounded-xl p-4 border " + border}>
+      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <div className="font-semibold text-slate-100">{title}</div>
+        <span className={"text-[10px] font-bold px-2 py-0.5 rounded-full " + tagClass}>{tag}</span>
+      </div>
+      <p className="text-xs text-slate-400 leading-relaxed">{body}</p>
     </div>
   );
 }
