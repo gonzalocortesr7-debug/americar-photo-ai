@@ -298,27 +298,53 @@ export default function Costos() {
       </section>
 
       <section>
-        <h3 className="text-lg font-semibold mb-3">Comparación vs. edición manual</h3>
+        <h3 className="text-lg font-semibold mb-3">Comparación vs. Impel</h3>
+        <p className="text-sm text-slate-400 mb-4">
+          Impel es la plataforma de fotografía automotriz actualmente disponible en el mercado para
+          concesionarios (procesa fotos de autos usados: fondo estudio, limpieza, patente). Costo referencial:
+          <strong className="text-slate-200"> $4.200 USD/mes</strong> (licencia fija, {clp(4200 * USD_TO_CLP)}).
+        </p>
         <div className="grid md:grid-cols-2 gap-4">
           <Compare
-            title="Retoque manual (Photoshop)"
+            title="Impel"
             items={[
-              "15–25 min por foto",
-              "Editor externo: $3–$8 USD por foto (~2.880–7.680 CLP)",
-              "2.500–3.000 inspecciones/mes ≈ " + clp(2500 * 5 * USD_TO_CLP) + " → " + clp(3000 * 5 * USD_TO_CLP) + " (promedio $5 USD)",
-              "Depende de disponibilidad humana · inconsistencia entre operadores",
+              "Licencia fija: $4.200 USD/mes · " + clp(4200 * USD_TO_CLP) + "/mes",
+              "$50.400 USD/año · " + clp(4200 * 12 * USD_TO_CLP) + "/año",
+              "Costo independiente del volumen (pagás igual uses 500 o 5.000 inspecciones)",
+              "Producto cerrado: sin control sobre prompts, pipeline o integración al MF",
             ]}
             tone="slate"
           />
           <Compare
-            title="Americar Photo AI (Nano Banana)"
+            title="Americar Photo AI (Nano Banana) — recomendado"
             items={[
-              "30–60 segundos por inspección (automático al guardar)",
-              "$0.052 USD/inspección sin segmentación · ~$0.122 con volumen",
-              "2.500–3.000 inspecciones/mes ≈ " + clp(2500 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + " → " + clp(3000 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + " (escenario recomendado)",
-              "Pipeline determinista · disponible 24/7 · preservación pixel-perfect",
+              "Escenario con volumen a 2.500 inspecciones: " + usd(2500 * SCENARIOS["produccion-volumen"].perInspection) + "/mes · " + clp(2500 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + "/mes",
+              "Escenario con volumen a 3.000 inspecciones: " + usd(3000 * SCENARIOS["produccion-volumen"].perInspection) + "/mes · " + clp(3000 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + "/mes",
+              "Costo 100% variable: si no procesás, no pagás",
+              "Integrado en portal_mf_inspection · pipeline propio · prompts controlados",
             ]}
             tone="brand"
+          />
+        </div>
+
+        <div className="mt-4 grid md:grid-cols-3 gap-4">
+          <SavingsCard
+            label="Ahorro mensual vs. Impel"
+            value={4200 - 3000 * SCENARIOS["produccion-volumen"].perInspection}
+            clpLabel={clp((4200 - 3000 * SCENARIOS["produccion-volumen"].perInspection) * USD_TO_CLP)}
+            note="A 3.000 inspecciones/mes con escenario recomendado"
+          />
+          <SavingsCard
+            label="Ahorro anual vs. Impel"
+            value={(4200 - 3000 * SCENARIOS["produccion-volumen"].perInspection) * 12}
+            clpLabel={clp((4200 - 3000 * SCENARIOS["produccion-volumen"].perInspection) * 12 * USD_TO_CLP)}
+            note="12 meses de operación al tope del rango"
+          />
+          <SavingsCard
+            label="% reducción de costo"
+            value={null}
+            custom={`${Math.round((1 - (3000 * SCENARIOS["produccion-volumen"].perInspection) / 4200) * 100)}%`}
+            note="Costo de Photo AI sobre costo de Impel"
           />
         </div>
       </section>
@@ -381,6 +407,23 @@ function Stat({ label, usd, clp }) {
       <div className="text-xs text-slate-400 uppercase tracking-wide">{label}</div>
       <div className="text-2xl font-bold text-brand-300 mt-1">{usd}</div>
       <div className="text-sm text-slate-300 font-mono mt-0.5">{clp}</div>
+    </div>
+  );
+}
+
+function SavingsCard({ label, value, clpLabel, note, custom }) {
+  return (
+    <div className="rounded-xl bg-brand-500/10 border border-brand-500/40 p-4">
+      <div className="text-xs text-slate-400 uppercase tracking-wide">{label}</div>
+      {custom ? (
+        <div className="text-3xl font-bold text-brand-300 mt-1">{custom}</div>
+      ) : (
+        <>
+          <div className="text-2xl font-bold text-brand-300 mt-1">${value.toFixed(0)} <span className="text-sm text-slate-500 font-normal">USD</span></div>
+          <div className="text-sm font-mono text-slate-300 mt-0.5">{clpLabel}</div>
+        </>
+      )}
+      <div className="text-[11px] text-slate-500 mt-2 leading-snug">{note}</div>
     </div>
   );
 }
