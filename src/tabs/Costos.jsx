@@ -51,7 +51,8 @@ const SCENARIOS = {
   },
 };
 
-const VOLUME_ROWS = [500, 2000, 5000, 7000];
+const VOLUME_ROWS = [500, 1000, 2500, 3000, 5000];
+const AMERICAR_RANGE = [2500, 3000];
 
 function clp(v) {
   return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(v);
@@ -61,7 +62,7 @@ function usd(v, fraction = 2) {
 }
 
 export default function Costos() {
-  const [volume, setVolume] = useState(7000);
+  const [volume, setVolume] = useState(3000);
   const [scenarioId, setScenarioId] = useState("produccion-volumen");
   const scenario = SCENARIOS[scenarioId];
   const monthlyUSD = volume * scenario.perInspection;
@@ -171,8 +172,8 @@ export default function Costos() {
         </div>
         <p className="text-xs text-slate-500 mt-4">
           * Conversión USD→CLP referencial ({USD_TO_CLP.toLocaleString("es-CL")} CLP/USD). Actualizar al tipo de cambio
-          del mes para el presupuesto oficial. Al volumen de Americar (7.000 inspecciones/mes) conviene pedir pricing
-          corporativo a Google Cloud + descuentos en Anthropic enterprise.
+          del mes para el presupuesto oficial. Al volumen estimado de Americar (2.500–3.000 inspecciones/mes) conviene
+          pedir pricing corporativo a Google Cloud + descuentos en Anthropic enterprise para bajar el ticket unitario.
         </p>
       </section>
 
@@ -190,10 +191,10 @@ export default function Costos() {
             </thead>
             <tbody className="divide-y divide-slate-800">
               {VOLUME_ROWS.map((v) => (
-                <tr key={v} className={v === 7000 ? "bg-brand-500/5" : ""}>
+                <tr key={v} className={AMERICAR_RANGE.includes(v) ? "bg-brand-500/5" : ""}>
                   <td className="px-4 py-3 font-semibold text-slate-200">
                     {v.toLocaleString("es-CL")}
-                    {v === 7000 && <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand-500 text-slate-950">AMERICAR</span>}
+                    {AMERICAR_RANGE.includes(v) && <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand-500 text-slate-950">AMERICAR</span>}
                   </td>
                   {Object.entries(SCENARIOS).map(([id, s]) => {
                     const m = v * s.perInspection;
@@ -211,28 +212,30 @@ export default function Costos() {
           </table>
         </div>
         <p className="text-xs text-slate-500 mt-2">
-          Fila destacada: volumen real esperado de Americar (7.000 inspecciones/mes · 84.000 anuales).
+          Filas destacadas: rango real esperado de Americar (2.500–3.000 inspecciones/mes · 30.000–36.000 anuales).
         </p>
       </section>
 
       <section>
-        <h3 className="text-lg font-semibold mb-3">Escenario Americar — 7.000 inspecciones/mes</h3>
+        <h3 className="text-lg font-semibold mb-3">Escenario Americar — 2.500 a 3.000 inspecciones/mes</h3>
         <div className="grid md:grid-cols-3 gap-4">
           {Object.entries(SCENARIOS).map(([id, s]) => {
-            const m = 7000 * s.perInspection;
-            const y = m * 12;
+            const mLow = 2500 * s.perInspection;
+            const mHigh = 3000 * s.perInspection;
+            const yLow = mLow * 12;
+            const yHigh = mHigh * 12;
             return (
               <div key={id} className={"rounded-xl p-5 border " + (id === "produccion-volumen" ? "bg-brand-500/10 border-brand-500/40" : "bg-slate-900 border-slate-800")}>
                 <div className="text-xs text-slate-500 uppercase tracking-wider">{s.label}</div>
                 <div className="mt-3">
-                  <div className="text-xs text-slate-400">Costo mensual</div>
-                  <div className="text-2xl font-bold text-brand-300">{clp(m * USD_TO_CLP)}</div>
-                  <div className="text-xs text-slate-500 font-mono">{usd(m)}</div>
+                  <div className="text-xs text-slate-400">Costo mensual (2.500 → 3.000)</div>
+                  <div className="text-xl font-bold text-brand-300 leading-tight">{clp(mLow * USD_TO_CLP)} <span className="text-slate-500 text-base">→</span> {clp(mHigh * USD_TO_CLP)}</div>
+                  <div className="text-xs text-slate-500 font-mono">{usd(mLow)} → {usd(mHigh)}</div>
                 </div>
                 <div className="mt-3">
                   <div className="text-xs text-slate-400">Costo anual</div>
-                  <div className="text-xl font-bold text-slate-100">{clp(y * USD_TO_CLP)}</div>
-                  <div className="text-xs text-slate-500 font-mono">{usd(y)}</div>
+                  <div className="text-base font-bold text-slate-100 leading-tight">{clp(yLow * USD_TO_CLP)} <span className="text-slate-500">→</span> {clp(yHigh * USD_TO_CLP)}</div>
+                  <div className="text-xs text-slate-500 font-mono">{usd(yLow)} → {usd(yHigh)}</div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-400">
                   Costo por inspección: <span className="font-mono text-slate-300">{usd(s.perInspection, 3)}</span> · <span className="font-mono">{clp(s.perInspection * USD_TO_CLP)}</span>
@@ -251,7 +254,7 @@ export default function Costos() {
             items={[
               "15–25 min por foto",
               "Editor externo: $3–$8 USD por foto (~2.880–7.680 CLP)",
-              "7.000 inspecciones/mes ≈ " + clp(7000 * 5 * USD_TO_CLP) + " (promedio $5 USD)",
+              "2.500–3.000 inspecciones/mes ≈ " + clp(2500 * 5 * USD_TO_CLP) + " → " + clp(3000 * 5 * USD_TO_CLP) + " (promedio $5 USD)",
               "Depende de disponibilidad humana · inconsistencia entre operadores",
             ]}
             tone="slate"
@@ -261,7 +264,7 @@ export default function Costos() {
             items={[
               "30–60 segundos por inspección (automático al guardar)",
               "$0.052 USD/inspección sin segmentación · ~$0.122 con volumen",
-              "7.000 inspecciones/mes ≈ " + clp(7000 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + " (escenario recomendado)",
+              "2.500–3.000 inspecciones/mes ≈ " + clp(2500 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + " → " + clp(3000 * SCENARIOS["produccion-volumen"].perInspection * USD_TO_CLP) + " (escenario recomendado)",
               "Pipeline determinista · disponible 24/7 · preservación pixel-perfect",
             ]}
             tone="brand"
