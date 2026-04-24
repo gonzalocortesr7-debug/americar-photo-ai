@@ -173,7 +173,9 @@ export default function Spin360() {
         </div>
         <p className="text-xs text-slate-500 mt-2">
           El costo por frame ($0.122) asume el escenario <em>Producción con volumen</em> del tab Costos.
-          Si se sube a 36 frames, el ticket mensual en modo B ronda los {clp(FRAMES_HIGH * PER_FRAME_IA * MONTHLY_VOL * USD_TO_CLP)} — aún por debajo del costo mensual de Impel ({clp(4200 * USD_TO_CLP)}).
+          A 3.000 inspecciones/mes el Modo B supera al costo de Impel ({clp(4200 * USD_TO_CLP)}/mes) — solo tiene
+          sentido si el engagement del spin full-IA genera uplift de conversión medible. El Modo A (raw)
+          conserva el ahorro de ~91% vs. Impel y ya da diferenciación visual significativa.
         </p>
       </section>
 
