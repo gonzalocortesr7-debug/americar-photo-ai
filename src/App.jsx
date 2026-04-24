@@ -5,6 +5,7 @@ import Arquitectura from "./tabs/Arquitectura.jsx";
 import Pipeline from "./tabs/Pipeline.jsx";
 import Demo from "./tabs/Demo.jsx";
 import Costos from "./tabs/Costos.jsx";
+import Spin360 from "./tabs/Spin360.jsx";
 import Roadmap from "./tabs/Roadmap.jsx";
 
 const TABS = [
@@ -14,6 +15,7 @@ const TABS = [
   { id: "pipeline", label: "Pipeline IA", component: Pipeline },
   { id: "demo", label: "Demo", component: Demo },
   { id: "costos", label: "Costos", component: Costos },
+  { id: "spin360", label: "Experiencia 360°", component: Spin360 },
   { id: "roadmap", label: "Roadmap", component: Roadmap },
 ];
 
