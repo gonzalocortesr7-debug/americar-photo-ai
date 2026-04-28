@@ -12,7 +12,12 @@ Do NOT write a generation prompt. Just describe the scene factually so a composi
 
 Structure:
 {
- "vehicle":{"brand":"","model":"","color":"","bodyType":""},
+ "vehicle":{
+   "brand":"",
+   "model":"",
+   "color":"EXACT paint color — be specific about hue AND finish (e.g. 'dark navy blue metallic', 'pearl white', 'silver grey', 'dark forest green', 'dark anthracite grey metallic'). NEVER collapse a dark blue, dark green or dark grey into just 'black'. Look carefully at the hue under the ambient light.",
+   "bodyType":""
+ },
  "orientation":{
    "visibleSide":"front | rear | left side | right side | front-left 3/4 | front-right 3/4 | rear-left 3/4 | rear-right 3/4",
    "describe":"one short sentence describing which side of the car faces the camera (e.g. 'the driver headlight is on the right of the frame; the car faces the camera from its front-left 3/4')"
@@ -37,32 +42,38 @@ const buildEditPrompt = (analysis, logoText) => {
   const logoLabel = (logoText || "").trim() || "AMERICAR";
 
   return [
-    `Edit this exact photo of a ${v.color || ""} ${v.brand || ""} ${v.model || ""}. This is a USED car for a second-hand vehicle listing — the result must look like a professional used-car listing photo, NOT a new-car advertisement.`,
+    `You are editing an existing photograph. DO NOT regenerate, redraw, or re-render the car. You must work with the actual pixels of the input image and change only what is explicitly listed below. Every part of the car must look like the original photo.`,
     ``,
-    `ORIENTATION (ABSOLUTE RULES — breaking any of these ruins the output):`,
+    `The car in this photo is a ${v.color || ""} ${v.brand || ""} ${v.model || ""}. This is a USED vehicle for a second-hand listing.`,
+    ``,
+    `PAINT COLOR — ABSOLUTE RULE:`,
+    `- The exact paint color is: "${v.color || "same as input"}".`,
+    `- DO NOT change the hue, saturation, tone, or finish of the paint under any circumstance.`,
+    `- If the input shows a dark navy blue car, the output must show a dark navy blue car — NOT black, NOT dark grey.`,
+    `- Copy the paint color directly from the input image pixels. Do not interpret or "improve" it.`,
+    ``,
+    `ORIENTATION — ABSOLUTE RULES:`,
     `- The visible side is "${o.visibleSide || "same as input"}". ${o.describe || ""}`,
-    `- DO NOT mirror, flip or invert the image horizontally or vertically.`,
-    `- DO NOT rotate the car. DO NOT change the camera angle, framing or perspective.`,
-    `- If the driver's headlight is on the right of the frame in the input, it MUST be on the right of the frame in the output.`,
+    `- DO NOT mirror, flip or invert the image in any direction.`,
+    `- DO NOT rotate the car or change the camera angle, framing or perspective.`,
     `- Output the SAME SIDE of the car as the input. Never swap left and right.`,
     ``,
-    `PRESERVATION — THIS IS THE MOST IMPORTANT SECTION. Read carefully:`,
-    `- This car has been driven and shows normal wear. That wear is REAL, EXPECTED, and MUST be preserved exactly as-is.`,
-    `- Keep every sign of age and use: ${wear}.`,
-    `- Keep current paint condition — dull areas stay dull, faded areas stay faded, scuffs stay scuffs.`,
-    `- Keep the existing wheels exactly as they are (same rims, same tire wear, same brake dust pattern). Do not replace, re-style, or polish them.`,
-    `- Keep the original body shape, proportions, trim, grille, headlights, mirrors, roof, window tint. No restyling whatsoever.`,
-    `- CRITICAL: Do NOT add gloss, shine, or polish to the paint. Do NOT make the car look restored, detailed, or brand new. A prospective buyer must see the vehicle's REAL current condition.`,
-    `- The aging and imperfections are intentional — they build trust with the buyer. Removing them would be misleading.`,
+    `PRESERVATION — DO NOT TOUCH ANY OF THESE:`,
+    `- Every sign of age and use: ${wear}. These are REAL and must stay exactly as-is.`,
+    `- Paint condition: dull areas stay dull, faded areas stay faded, scuffs stay scuffs.`,
+    `- Wheels: same rims, same tire wear, same brake dust. No polishing, no restyling.`,
+    `- Body shape, proportions, trim, grille, headlights, mirrors, roof, window tint. Zero restyling.`,
+    `- DO NOT add gloss, shine, or polish. DO NOT make the car look restored or new.`,
+    `- DO NOT re-render or re-draw any surface. Edit pixels; do not replace them with generated content.`,
     ``,
-    `ALLOWED CHANGES (only these — nothing else):`,
-    `1. Remove removable surface dirt only: ${dirt}. Think "car wash result", not "full detail/restoration".`,
-    `2. Neutralize unwanted reflections and harsh glare: ${reflections}. Preserve the car's natural paint texture and realistic sheen.`,
-    `3. Correct exposure so the car is evenly visible (${c.lighting || "balance highlights and shadows"}). Do NOT re-color or re-paint any panel.`,
-    `4. Replace the ORIGINAL BACKGROUND ONLY (everything that is NOT the car) with a used-car dealership indoor photo studio: neutral light-grey seamless cyclorama backdrop, matte light-grey floor with a faint subtle reflection of the car, soft even overhead lighting without dramatic highlights, natural soft shadow under the vehicle. The studio must look functional and professional, NOT like a luxury new-car showroom.`,
-    `5. Cover ONLY the license plate${p.location ? ` (located at ${p.location})` : ""} with a small dark rectangle containing the centered text "${logoLabel}" in clean minimalist white sans-serif typography. Do not cover anything else.`,
+    `ALLOWED CHANGES — ONLY THESE FIVE, NOTHING ELSE:`,
+    `1. Remove removable surface dirt: ${dirt}. "Car wash" level only — no detailing, no restoration.`,
+    `2. Neutralize harsh reflections/glare: ${reflections}. Keep the car's natural paint texture and sheen.`,
+    `3. Correct exposure so the car is evenly visible (${c.lighting || "balance highlights and shadows"}). Do NOT alter any color.`,
+    `4. Replace ONLY the background (everything outside the car) with: neutral light-grey seamless cyclorama backdrop, matte light-grey floor, faint floor reflection of the car, soft even diffuse overhead lighting, natural soft shadow under the vehicle. Functional used-car photo studio — NOT a luxury showroom.`,
+    `5. Cover ONLY the license plate${p.location ? ` (at ${p.location})` : ""} with a small dark rectangle containing "${logoLabel}" in white sans-serif text. Cover nothing else.`,
     ``,
-    `OUTPUT: the SAME used car, in the SAME orientation, with clean surfaces (not polished), corrected exposure, neutral studio background, and covered plate. Photorealistic DSLR result. A buyer should look at this photo and trust that the car genuinely looks like this — because it does.`,
+    `OUTPUT: the SAME car from the input photo — same color, same wear, same shape — with only the background swapped, dirt removed, exposure corrected, and plate covered. Photorealistic edited photograph. Not a render. Not a new car. The same used car.`,
   ].join("\n");
 };
 

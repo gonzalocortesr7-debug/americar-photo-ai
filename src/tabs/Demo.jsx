@@ -34,6 +34,7 @@ export default function Demo() {
 
   const [phase, setPhase] = useState("idle");
   const [analysis, setAnalysis] = useState(null);
+  const [promptUsed, setPromptUsed] = useState(null);
   const [resultB64, setResultB64] = useState(null);
   const [error, setError] = useState("");
   const fileRef = useRef(null);
@@ -65,6 +66,7 @@ export default function Demo() {
       }
       const data = await res.json();
       setAnalysis(data.analysis);
+      setPromptUsed(data.promptUsed);
       setResultB64(data.image);
       setPhase("done");
     } catch (e) {
@@ -83,7 +85,7 @@ export default function Demo() {
 
   const reset = () => {
     setFile(null); setImageB64(null); setPreview(null); setMime(null);
-    setAnalysis(null); setResultB64(null); setPhase("idle"); setError("");
+    setAnalysis(null); setPromptUsed(null); setResultB64(null); setPhase("idle"); setError("");
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -206,10 +208,10 @@ export default function Demo() {
               <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
                 <Stat k="Marca" v={analysis.vehicle.brand} />
                 <Stat k="Modelo" v={analysis.vehicle.model} />
-                <Stat k="Color" v={analysis.vehicle.color} />
+                <Stat k="Color detectado" v={analysis.vehicle.color} />
                 <Stat k="Carrocería" v={analysis.vehicle.bodyType} />
-                <Stat k="Ángulo" v={analysis.vehicle.angle} />
-                {analysis.issues?.plateText && <Stat k="Patente detectada" v={analysis.issues.plateText} />}
+                <Stat k="Ángulo" v={analysis.orientation?.visibleSide} />
+                {analysis.plate?.text && <Stat k="Patente detectada" v={analysis.plate.text} />}
               </div>
             )}
             <div className="rounded-xl bg-slate-950 border border-slate-800 p-5 space-y-4">
@@ -236,6 +238,27 @@ export default function Demo() {
                 </button>
               </div>
             </div>
+
+            {/* Debug: análisis Claude + prompt enviado a Gemini */}
+            <details className="rounded-xl bg-slate-900/60 border border-slate-700 p-4 text-xs">
+              <summary className="cursor-pointer text-slate-300 font-medium text-sm">🔍 Debug — Análisis Claude + Prompt enviado a Gemini</summary>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <div className="text-slate-400 uppercase tracking-wider mb-1 font-semibold">Análisis Claude (JSON)</div>
+                  <pre className="bg-slate-950 rounded-lg p-3 overflow-auto text-slate-300 leading-relaxed whitespace-pre-wrap">
+                    {JSON.stringify(analysis, null, 2)}
+                  </pre>
+                </div>
+                {promptUsed && (
+                  <div>
+                    <div className="text-slate-400 uppercase tracking-wider mb-1 font-semibold">Prompt enviado a Gemini (edit prompt)</div>
+                    <pre className="bg-slate-950 rounded-lg p-3 overflow-auto text-slate-300 leading-relaxed whitespace-pre-wrap">
+                      {promptUsed}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </details>
           </div>
         )}
       </div>
