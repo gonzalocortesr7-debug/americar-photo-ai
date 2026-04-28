@@ -2,6 +2,70 @@ import { useEffect, useRef, useState } from "react";
 
 const LS_WORKER = "americar.workerUrl";
 
+function compositeStudio(cutoutB64, analysis, logoText) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const W = img.naturalWidth;
+      const H = img.naturalHeight;
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d");
+
+      // Studio background: light grey gradient top-to-bottom
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, "#f5f5f5");
+      bg.addColorStop(0.65, "#ebebeb");
+      bg.addColorStop(1, "#e2e2e2");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Soft ground shadow under car
+      ctx.save();
+      ctx.filter = "blur(28px)";
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = "#888";
+      ctx.beginPath();
+      ctx.ellipse(W * 0.5, H * 0.86, W * 0.38, H * 0.05, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Car cutout (preserves 100% of original car pixels)
+      ctx.drawImage(img, 0, 0, W, H);
+
+      // Plate cover using bbox from Claude analysis
+      const plate = analysis?.plate;
+      if (plate?.visible && plate?.bbox) {
+        const { x_pct, y_pct, w_pct, h_pct } = plate.bbox;
+        const valid =
+          typeof x_pct === "number" && typeof y_pct === "number" &&
+          typeof w_pct === "number" && typeof h_pct === "number" &&
+          x_pct >= 0 && y_pct >= 0 && w_pct > 0.01 && h_pct > 0.01 &&
+          x_pct + w_pct <= 1.15 && y_pct + h_pct <= 1.15;
+        if (valid) {
+          const px = x_pct * W;
+          const py = y_pct * H;
+          const pw = w_pct * W;
+          const ph = h_pct * H;
+          ctx.fillStyle = "#1a1a1a";
+          ctx.fillRect(px, py, pw, ph);
+          const fontSize = Math.max(9, ph * 0.52);
+          ctx.font = `600 ${fontSize}px Arial, sans-serif`;
+          ctx.fillStyle = "#ffffff";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText((logoText || "CLICAR").toUpperCase(), px + pw / 2, py + ph / 2);
+        }
+      }
+
+      resolve(canvas.toDataURL("image/jpeg", 0.93).split(",")[1]);
+    };
+    img.onerror = reject;
+    img.src = "data:image/png;base64," + cutoutB64;
+  });
+}
+
 const PUBLICATION_SLOT = "frente-der";
 
 const SLOTS = [
@@ -58,7 +122,7 @@ export default function Demo() {
       const res = await fetch(workerUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "process", image: imageB64, mime, logoText, quality: "high" }),
+        body: JSON.stringify({ action: "process", image: imageB64, mime, logoText }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: res.statusText }));
@@ -66,8 +130,13 @@ export default function Demo() {
       }
       const data = await res.json();
       setAnalysis(data.analysis);
-      setPromptUsed(data.promptUsed);
-      setResultB64(data.image);
+      setPromptUsed(null);
+      if (data.cutout) {
+        const final = await compositeStudio(data.cutout, data.analysis, logoText);
+        setResultB64(final);
+      } else {
+        setResultB64(data.image);
+      }
       setPhase("done");
     } catch (e) {
       setError(e.message || String(e));
@@ -191,7 +260,7 @@ export default function Demo() {
           <div className="rounded-xl bg-slate-950 border border-slate-800 p-6 text-center">
             <div className="inline-block w-8 h-8 border-2 border-slate-700 border-t-brand-500 rounded-full animate-spin" />
             <p className="text-slate-400 text-sm mt-3">
-              Procesando la inspección… Claude analiza + Nano Banana (Gemini 2.5 Flash Image) aplica. En producción se suma el cutout con remove.bg antes de la edición.
+              Procesando… Claude analiza la foto + remove.bg recorta el auto + se compone el fondo de cabina virtual.
             </p>
           </div>
         )}
