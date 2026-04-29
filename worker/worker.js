@@ -10,7 +10,7 @@ Do NOT write a generation prompt. Just describe the scene factually so a composi
 
 Structure:
 {
- "vehicle":{"brand":"","model":"","color":"","bodyType":""},
+ "vehicle":{"brand":"","model":"","color":"EXACT paint color with hue AND finish (e.g. 'dark navy blue metallic', 'pearl white', 'silver grey', 'dark forest green', 'dark charcoal grey metallic'). NEVER collapse a dark blue, green or grey into just 'black'. Look carefully at the hue under ambient light.","bodyType":""},
  "orientation":{
    "visibleSide":"front | rear | left side | right side | front-left 3/4 | front-right 3/4 | rear-left 3/4 | rear-right 3/4",
    "describe":"one short sentence describing which side of the car faces the camera (e.g. 'the driver headlight is on the right of the frame; the car faces the camera from its front-left 3/4')"
@@ -37,6 +37,14 @@ const buildEditPrompt = (analysis, logoText) => {
   return [
     `Edit this exact photo of a ${v.color || ""} ${v.brand || ""} ${v.model || ""}. This is a real used car on a dealership lot — keep it that way.`,
     ``,
+    `PAINT COLOR — ABSOLUTE RULE (THIS IS THE MOST IMPORTANT INSTRUCTION):`,
+    `- The car's exact paint color is "${v.color || "as shown in the input"}".`,
+    `- DO NOT change the hue, saturation, tone, or finish of the paint UNDER ANY CIRCUMSTANCE.`,
+    `- DO NOT convert dark blue, dark green, dark charcoal grey or any dark color into black.`,
+    `- DO NOT brighten, darken, shift, or "improve" the paint color in any way.`,
+    `- Copy the paint color directly from the input image pixels — do not interpret, normalize, or stylize it.`,
+    `- If the input shows a "${v.color || "specific colored"}" car, the output MUST show the SAME "${v.color || "color"}" — pixel-faithful to the original.`,
+    ``,
     `ORIENTATION (ABSOLUTE RULES — breaking any of these ruins the output):`,
     `- The visible side is "${o.visibleSide || "same as input"}". ${o.describe || ""}`,
     `- DO NOT mirror, flip or invert the image horizontally or vertically.`,
@@ -58,7 +66,7 @@ const buildEditPrompt = (analysis, logoText) => {
     `4. Replace the ORIGINAL BACKGROUND ONLY (everything that is NOT the car) with a virtual photo studio: near-white seamless cyclorama backdrop, light grey floor with a subtle realistic reflection of the car, soft overhead studio softbox lighting, controlled soft shadow under the vehicle.`,
     `5. Cover ONLY the license plate${p.location ? ` (located at ${p.location})` : ""} with a small dark rectangle containing the centered text "${logoLabel}" in clean minimalist white sans-serif typography. Do not cover anything else.`,
     ``,
-    `OUTPUT: the SAME car, in the SAME orientation, with clean surfaces, corrected lighting, studio background and covered plate. Photorealistic DSLR result, not a 3D render.`,
+    `OUTPUT: the SAME car, in the SAME orientation, WITH THE EXACT SAME PAINT COLOR as the input photo, with clean surfaces, corrected lighting, studio background and covered plate. Photorealistic DSLR result, not a 3D render.`,
   ].join("\n");
 };
 
