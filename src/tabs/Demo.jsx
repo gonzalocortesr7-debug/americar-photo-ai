@@ -56,34 +56,32 @@ function compositeStudio(cutoutB64, analysis, logoText) {
       // ── Plate cover ───────────────────────────────────────────────────
       const plate = analysis?.plate;
       const side = analysis?.orientation?.visibleSide || "";
+      const isRear = side.includes("rear");
 
-      let plateBbox = null;
+      // Heuristic defaults (primary method — Claude's spatial coords are unreliable)
+      const heuristic = isRear
+        ? { x_pct: 0.36, y_pct: 0.72, w_pct: 0.24, h_pct: 0.07 }
+        : { x_pct: 0.34, y_pct: 0.71, w_pct: 0.24, h_pct: 0.07 };
 
-      // Use Claude's bbox if coordinates are plausible
+      let plateBbox = heuristic;
+
+      // Override with Claude's bbox only if it lands in a very tight plausible window:
+      // x: 10–65% (plate won't be in right third of a front/rear shot)
+      // y: 52–88% (plate is always in lower half, never near bottom edge)
       if (plate?.visible && plate?.bbox) {
         const { x_pct, y_pct, w_pct, h_pct } = plate.bbox;
-        const plausible =
+        const tight =
           typeof x_pct === "number" && typeof y_pct === "number" &&
           typeof w_pct === "number" && typeof h_pct === "number" &&
-          x_pct >= 0.05 && x_pct <= 0.85 &&   // not in a corner
-          y_pct >= 0.4  && y_pct <= 0.95 &&    // in the lower portion
-          w_pct >= 0.05 && w_pct <= 0.45 &&    // reasonable plate width
-          h_pct >= 0.02 && h_pct <= 0.2  &&    // reasonable plate height
-          x_pct + w_pct <= 1.0 && y_pct + h_pct <= 1.0;
-        if (plausible) plateBbox = { x_pct, y_pct, w_pct, h_pct };
+          x_pct >= 0.10 && x_pct <= 0.65 &&
+          y_pct >= 0.52 && y_pct <= 0.88 &&
+          w_pct >= 0.07 && w_pct <= 0.32 &&
+          h_pct >= 0.02 && h_pct <= 0.12 &&
+          x_pct + w_pct <= 0.95 && y_pct + h_pct <= 0.95;
+        if (tight) plateBbox = { x_pct, y_pct, w_pct, h_pct };
       }
 
-      // Fallback heuristic if Claude's bbox is unreliable
-      if (!plateBbox && plate?.visible) {
-        if (side.includes("rear")) {
-          plateBbox = { x_pct: 0.38, y_pct: 0.74, w_pct: 0.22, h_pct: 0.07 };
-        } else {
-          // front / front-3/4: plate center-bottom of front bumper
-          plateBbox = { x_pct: 0.36, y_pct: 0.72, w_pct: 0.22, h_pct: 0.07 };
-        }
-      }
-
-      if (plateBbox) {
+      if (plate?.visible !== false) {
         const { x_pct, y_pct, w_pct, h_pct } = plateBbox;
         const px = x_pct * W;
         const py = y_pct * H;
@@ -99,7 +97,8 @@ function compositeStudio(cutoutB64, analysis, logoText) {
         ctx.fillText((logoText || "CLICAR").toUpperCase(), px + pw / 2, py + ph / 2);
       }
 
-      resolve(canvas.toDataURL("image/jpeg", 0.93).split(",")[1]);
+      // PNG para evitar mismatch con el <img> que usa data:image/png
+      resolve(canvas.toDataURL("image/png").split(",")[1]);
     };
     img.onerror = reject;
     img.src = "data:image/png;base64," + cutoutB64;
