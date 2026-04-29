@@ -5,7 +5,10 @@ const LS_WORKER = "americar.workerUrl";
 function compositeStudio(cutoutB64, analysis, logoText) {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    const timer = setTimeout(() => reject(new Error("compositeStudio timeout")), 30000);
+
     img.onload = () => {
+      clearTimeout(timer);
       const W = img.naturalWidth;
       const H = img.naturalHeight;
       const canvas = document.createElement("canvas");
@@ -13,94 +16,69 @@ function compositeStudio(cutoutB64, analysis, logoText) {
       canvas.height = H;
       const ctx = canvas.getContext("2d");
 
-      // ── Cyclorama background ──────────────────────────────────────────
-      // Base: medium grey floor
-      ctx.fillStyle = "#c8c8c8";
+      // ── 1. FONDO CABINA VIRTUAL ───────────────────────────────────────
+      // Base gris medio — oscuro suficiente para que se vea claramente gris
+      ctx.fillStyle = "#b4b4b4";
       ctx.fillRect(0, 0, W, H);
 
-      // Overhead light: radial from top-center (simulates softbox above)
-      const overhead = ctx.createRadialGradient(W * 0.5, -H * 0.1, 0, W * 0.5, H * 0.4, W * 0.85);
-      overhead.addColorStop(0, "rgba(255,255,255,0.55)");
-      overhead.addColorStop(0.5, "rgba(220,220,220,0.2)");
-      overhead.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = overhead;
+      // Luz de estudio cenital (softbox overhead)
+      const light = ctx.createRadialGradient(W * 0.5, 0, 0, W * 0.5, H * 0.3, W * 0.8);
+      light.addColorStop(0,   "rgba(255,255,255,0.55)");
+      light.addColorStop(0.4, "rgba(240,240,240,0.18)");
+      light.addColorStop(1,   "rgba(0,0,0,0)");
+      ctx.fillStyle = light;
       ctx.fillRect(0, 0, W, H);
 
-      // Floor plane: slightly darker towards bottom edges (depth)
-      const floor = ctx.createLinearGradient(0, H * 0.55, 0, H);
-      floor.addColorStop(0, "rgba(80,80,80,0)");
-      floor.addColorStop(1, "rgba(80,80,80,0.28)");
-      ctx.fillStyle = floor;
-      ctx.fillRect(0, H * 0.55, W, H * 0.45);
+      // Piso (área inferior más oscura)
+      const floorGrad = ctx.createLinearGradient(0, H * 0.58, 0, H);
+      floorGrad.addColorStop(0, "rgba(0,0,0,0)");
+      floorGrad.addColorStop(1, "rgba(0,0,0,0.32)");
+      ctx.fillStyle = floorGrad;
+      ctx.fillRect(0, H * 0.58, W, H * 0.42);
 
-      // Corner vignette (cyclorama darkens at edges)
-      const vignette = ctx.createRadialGradient(W * 0.5, H * 0.45, H * 0.2, W * 0.5, H * 0.45, W * 0.8);
-      vignette.addColorStop(0, "rgba(0,0,0,0)");
-      vignette.addColorStop(1, "rgba(0,0,0,0.18)");
-      ctx.fillStyle = vignette;
+      // Viñeta lateral (bordes más oscuros, profundidad)
+      const vig = ctx.createRadialGradient(W * 0.5, H * 0.42, H * 0.1, W * 0.5, H * 0.42, W * 0.88);
+      vig.addColorStop(0, "rgba(0,0,0,0)");
+      vig.addColorStop(1, "rgba(0,0,0,0.28)");
+      ctx.fillStyle = vig;
       ctx.fillRect(0, 0, W, H);
 
-      // ── Ground shadow under car ───────────────────────────────────────
+      // ── 2. SOMBRA DE PISO (bajo el auto) ─────────────────────────────
       ctx.save();
-      ctx.filter = "blur(32px)";
-      ctx.globalAlpha = 0.38;
-      ctx.fillStyle = "#505050";
+      ctx.filter = "blur(38px)";
+      ctx.globalAlpha = 0.52;
+      ctx.fillStyle = "#3a3a3a";
       ctx.beginPath();
-      ctx.ellipse(W * 0.5, H * 0.885, W * 0.4, H * 0.048, 0, 0, Math.PI * 2);
+      ctx.ellipse(W * 0.5, H * 0.875, W * 0.44, H * 0.058, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
-      // ── Car cutout (100% original pixels) ────────────────────────────
+      // ── 3. AUTO (píxeles 100% originales del recorte) ─────────────────
       ctx.drawImage(img, 0, 0, W, H);
 
-      // ── Plate cover ───────────────────────────────────────────────────
-      const plate = analysis?.plate;
-      const side = analysis?.orientation?.visibleSide || "";
-      const isRear = side.includes("rear");
+      // ── 4. TAPADO DE PATENTE (solo heurística — Claude no da coords fiables) ──
+      const isRear = (analysis?.orientation?.visibleSide || "").includes("rear");
+      // Frente/3/4: patente ~33-57% horizontal, ~70-77% vertical
+      // Posterior:  patente similar pero ajustada
+      const pb = isRear
+        ? { x: 0.33, y: 0.71, w: 0.25, h: 0.07 }
+        : { x: 0.33, y: 0.70, w: 0.25, h: 0.07 };
 
-      // Heuristic defaults (primary method — Claude's spatial coords are unreliable)
-      const heuristic = isRear
-        ? { x_pct: 0.36, y_pct: 0.72, w_pct: 0.24, h_pct: 0.07 }
-        : { x_pct: 0.34, y_pct: 0.71, w_pct: 0.24, h_pct: 0.07 };
-
-      let plateBbox = heuristic;
-
-      // Override with Claude's bbox only if it lands in a very tight plausible window:
-      // x: 10–65% (plate won't be in right third of a front/rear shot)
-      // y: 52–88% (plate is always in lower half, never near bottom edge)
-      if (plate?.visible && plate?.bbox) {
-        const { x_pct, y_pct, w_pct, h_pct } = plate.bbox;
-        const tight =
-          typeof x_pct === "number" && typeof y_pct === "number" &&
-          typeof w_pct === "number" && typeof h_pct === "number" &&
-          x_pct >= 0.10 && x_pct <= 0.65 &&
-          y_pct >= 0.52 && y_pct <= 0.88 &&
-          w_pct >= 0.07 && w_pct <= 0.32 &&
-          h_pct >= 0.02 && h_pct <= 0.12 &&
-          x_pct + w_pct <= 0.95 && y_pct + h_pct <= 0.95;
-        if (tight) plateBbox = { x_pct, y_pct, w_pct, h_pct };
-      }
-
-      if (plate?.visible !== false) {
-        const { x_pct, y_pct, w_pct, h_pct } = plateBbox;
-        const px = x_pct * W;
-        const py = y_pct * H;
-        const pw = w_pct * W;
-        const ph = h_pct * H;
-        ctx.fillStyle = "#141414";
+      if (analysis?.plate?.visible !== false) {
+        const px = pb.x * W, py = pb.y * H, pw = pb.w * W, ph = pb.h * H;
+        ctx.fillStyle = "#121212";
         ctx.fillRect(px, py, pw, ph);
-        const fontSize = Math.max(9, ph * 0.5);
-        ctx.font = `600 ${fontSize}px Arial, sans-serif`;
+        ctx.font = `600 ${Math.max(9, ph * 0.5)}px Arial,sans-serif`;
         ctx.fillStyle = "#ffffff";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText((logoText || "CLICAR").toUpperCase(), px + pw / 2, py + ph / 2);
       }
 
-      // PNG para evitar mismatch con el <img> que usa data:image/png
       resolve(canvas.toDataURL("image/png").split(",")[1]);
     };
-    img.onerror = reject;
+
+    img.onerror = (e) => { clearTimeout(timer); reject(e); };
     img.src = "data:image/png;base64," + cutoutB64;
   });
 }
