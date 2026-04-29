@@ -13,50 +13,90 @@ function compositeStudio(cutoutB64, analysis, logoText) {
       canvas.height = H;
       const ctx = canvas.getContext("2d");
 
-      // Studio background: light grey gradient top-to-bottom
-      const bg = ctx.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0, "#f5f5f5");
-      bg.addColorStop(0.65, "#ebebeb");
-      bg.addColorStop(1, "#e2e2e2");
-      ctx.fillStyle = bg;
+      // ── Cyclorama background ──────────────────────────────────────────
+      // Base: medium grey floor
+      ctx.fillStyle = "#c8c8c8";
       ctx.fillRect(0, 0, W, H);
 
-      // Soft ground shadow under car
+      // Overhead light: radial from top-center (simulates softbox above)
+      const overhead = ctx.createRadialGradient(W * 0.5, -H * 0.1, 0, W * 0.5, H * 0.4, W * 0.85);
+      overhead.addColorStop(0, "rgba(255,255,255,0.55)");
+      overhead.addColorStop(0.5, "rgba(220,220,220,0.2)");
+      overhead.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = overhead;
+      ctx.fillRect(0, 0, W, H);
+
+      // Floor plane: slightly darker towards bottom edges (depth)
+      const floor = ctx.createLinearGradient(0, H * 0.55, 0, H);
+      floor.addColorStop(0, "rgba(80,80,80,0)");
+      floor.addColorStop(1, "rgba(80,80,80,0.28)");
+      ctx.fillStyle = floor;
+      ctx.fillRect(0, H * 0.55, W, H * 0.45);
+
+      // Corner vignette (cyclorama darkens at edges)
+      const vignette = ctx.createRadialGradient(W * 0.5, H * 0.45, H * 0.2, W * 0.5, H * 0.45, W * 0.8);
+      vignette.addColorStop(0, "rgba(0,0,0,0)");
+      vignette.addColorStop(1, "rgba(0,0,0,0.18)");
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, W, H);
+
+      // ── Ground shadow under car ───────────────────────────────────────
       ctx.save();
-      ctx.filter = "blur(28px)";
-      ctx.globalAlpha = 0.22;
-      ctx.fillStyle = "#888";
+      ctx.filter = "blur(32px)";
+      ctx.globalAlpha = 0.38;
+      ctx.fillStyle = "#505050";
       ctx.beginPath();
-      ctx.ellipse(W * 0.5, H * 0.86, W * 0.38, H * 0.05, 0, 0, Math.PI * 2);
+      ctx.ellipse(W * 0.5, H * 0.885, W * 0.4, H * 0.048, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
-      // Car cutout (preserves 100% of original car pixels)
+      // ── Car cutout (100% original pixels) ────────────────────────────
       ctx.drawImage(img, 0, 0, W, H);
 
-      // Plate cover using bbox from Claude analysis
+      // ── Plate cover ───────────────────────────────────────────────────
       const plate = analysis?.plate;
+      const side = analysis?.orientation?.visibleSide || "";
+
+      let plateBbox = null;
+
+      // Use Claude's bbox if coordinates are plausible
       if (plate?.visible && plate?.bbox) {
         const { x_pct, y_pct, w_pct, h_pct } = plate.bbox;
-        const valid =
+        const plausible =
           typeof x_pct === "number" && typeof y_pct === "number" &&
           typeof w_pct === "number" && typeof h_pct === "number" &&
-          x_pct >= 0 && y_pct >= 0 && w_pct > 0.01 && h_pct > 0.01 &&
-          x_pct + w_pct <= 1.15 && y_pct + h_pct <= 1.15;
-        if (valid) {
-          const px = x_pct * W;
-          const py = y_pct * H;
-          const pw = w_pct * W;
-          const ph = h_pct * H;
-          ctx.fillStyle = "#1a1a1a";
-          ctx.fillRect(px, py, pw, ph);
-          const fontSize = Math.max(9, ph * 0.52);
-          ctx.font = `600 ${fontSize}px Arial, sans-serif`;
-          ctx.fillStyle = "#ffffff";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText((logoText || "CLICAR").toUpperCase(), px + pw / 2, py + ph / 2);
+          x_pct >= 0.05 && x_pct <= 0.85 &&   // not in a corner
+          y_pct >= 0.4  && y_pct <= 0.95 &&    // in the lower portion
+          w_pct >= 0.05 && w_pct <= 0.45 &&    // reasonable plate width
+          h_pct >= 0.02 && h_pct <= 0.2  &&    // reasonable plate height
+          x_pct + w_pct <= 1.0 && y_pct + h_pct <= 1.0;
+        if (plausible) plateBbox = { x_pct, y_pct, w_pct, h_pct };
+      }
+
+      // Fallback heuristic if Claude's bbox is unreliable
+      if (!plateBbox && plate?.visible) {
+        if (side.includes("rear")) {
+          plateBbox = { x_pct: 0.38, y_pct: 0.74, w_pct: 0.22, h_pct: 0.07 };
+        } else {
+          // front / front-3/4: plate center-bottom of front bumper
+          plateBbox = { x_pct: 0.36, y_pct: 0.72, w_pct: 0.22, h_pct: 0.07 };
         }
+      }
+
+      if (plateBbox) {
+        const { x_pct, y_pct, w_pct, h_pct } = plateBbox;
+        const px = x_pct * W;
+        const py = y_pct * H;
+        const pw = w_pct * W;
+        const ph = h_pct * H;
+        ctx.fillStyle = "#141414";
+        ctx.fillRect(px, py, pw, ph);
+        const fontSize = Math.max(9, ph * 0.5);
+        ctx.font = `600 ${fontSize}px Arial, sans-serif`;
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText((logoText || "CLICAR").toUpperCase(), px + pw / 2, py + ph / 2);
       }
 
       resolve(canvas.toDataURL("image/jpeg", 0.93).split(",")[1]);

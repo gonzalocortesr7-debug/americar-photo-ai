@@ -30,15 +30,24 @@ Structure:
    "visible":true,
    "text":"plate text if readable",
    "bbox":{
-     "x_pct":0.42,
-     "y_pct":0.75,
-     "w_pct":0.18,
-     "h_pct":0.06
+     "x_pct":0.0,
+     "y_pct":0.0,
+     "w_pct":0.0,
+     "h_pct":0.0
    }
  }
 }
 
-bbox: top-left corner (x_pct, y_pct) and size (w_pct, h_pct) as fractions of image width/height (0.0–1.0). Be precise — this is used to programmatically cover the plate.`;
+BBOX INSTRUCTIONS — read carefully:
+The image is a rectangle. Coordinates are fractions of the FULL image dimensions (0.0 = edge, 1.0 = opposite edge).
+- x_pct: distance from LEFT edge of image to LEFT edge of plate, divided by image width
+- y_pct: distance from TOP edge of image to TOP edge of plate, divided by image height
+- w_pct: plate width divided by image width  (typical: 0.10–0.25)
+- h_pct: plate height divided by image height (typical: 0.03–0.08)
+
+Example: a plate that starts at 40% from the left, 72% from the top, and is 18% wide and 6% tall → x_pct=0.40, y_pct=0.72, w_pct=0.18, h_pct=0.06
+
+If no plate is visible, set visible=false and leave bbox as all zeros.`;
 
 export default {
   async fetch(request, env) {
