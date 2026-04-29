@@ -16,25 +16,49 @@ function compositeStudio(cutoutB64, analysis, logoText) {
       canvas.height = H;
       const ctx = canvas.getContext("2d");
 
-      // ── 1. CABINA VIRTUAL (ciclorama fotográfico estilo catálogo) ────
-      // Base gris-blanco (ni blanco puro ni gris evidente)
-      ctx.fillStyle = "#efefef";
+      // ── 1. CICLORAMA INFINITO (cabina virtual real) ──────────────────
+      // Base blanca de pared del ciclorama
+      ctx.fillStyle = "#f4f4f4";
       ctx.fillRect(0, 0, W, H);
 
-      // Luz cenital amplia y suave (softbox grande arriba)
-      const topLight = ctx.createRadialGradient(W * 0.5, H * 0.18, 0, W * 0.5, H * 0.35, W * 0.95);
-      topLight.addColorStop(0,    "rgba(255,255,255,0.7)");
-      topLight.addColorStop(0.5,  "rgba(255,255,255,0.22)");
-      topLight.addColorStop(1,    "rgba(255,255,255,0)");
-      ctx.fillStyle = topLight;
+      // Pared superior: leve gradiente vertical (más oscuro arriba, más claro hacia el horizonte)
+      const wall = ctx.createLinearGradient(0, 0, 0, H * 0.7);
+      wall.addColorStop(0,    "rgba(195,200,205,0.45)"); // techo del ciclorama (más oscuro y frío)
+      wall.addColorStop(0.45, "rgba(220,222,225,0.25)");
+      wall.addColorStop(1,    "rgba(255,255,255,0)");    // hacia la curva
+      ctx.fillStyle = wall;
+      ctx.fillRect(0, 0, W, H * 0.7);
+
+      // Luz central cenital (softbox arriba-centro) — punto brillante característico del ciclorama
+      const keyLight = ctx.createRadialGradient(W * 0.5, H * 0.1, 0, W * 0.5, H * 0.4, W * 0.7);
+      keyLight.addColorStop(0,    "rgba(255,255,255,0.55)");
+      keyLight.addColorStop(0.5,  "rgba(255,255,255,0.18)");
+      keyLight.addColorStop(1,    "rgba(255,255,255,0)");
+      ctx.fillStyle = keyLight;
       ctx.fillRect(0, 0, W, H);
 
-      // Vignette muy sutil para profundidad de ciclorama (esquinas levemente más oscuras)
-      const vig = ctx.createRadialGradient(W * 0.5, H * 0.45, H * 0.3, W * 0.5, H * 0.45, W * 0.95);
-      vig.addColorStop(0, "rgba(0,0,0,0)");
-      vig.addColorStop(1, "rgba(0,0,0,0.08)");
-      ctx.fillStyle = vig;
-      ctx.fillRect(0, 0, W, H);
+      // Vignette de las esquinas superiores (muros laterales del ciclorama)
+      const sideVig = ctx.createRadialGradient(W * 0.5, H * 0.3, W * 0.25, W * 0.5, H * 0.3, W * 0.85);
+      sideVig.addColorStop(0, "rgba(0,0,0,0)");
+      sideVig.addColorStop(1, "rgba(70,75,80,0.18)");
+      ctx.fillStyle = sideVig;
+      ctx.fillRect(0, 0, W, H * 0.75);
+
+      // Curva del ciclorama: banda sutil donde la pared se transforma en piso
+      const curve = ctx.createLinearGradient(0, H * 0.55, 0, H * 0.78);
+      curve.addColorStop(0,   "rgba(0,0,0,0)");
+      curve.addColorStop(0.4, "rgba(0,0,0,0.05)");
+      curve.addColorStop(1,   "rgba(0,0,0,0)");
+      ctx.fillStyle = curve;
+      ctx.fillRect(0, H * 0.55, W, H * 0.23);
+
+      // Piso del ciclorama (un poco más cálido y claro que la pared)
+      const floor = ctx.createLinearGradient(0, H * 0.68, 0, H);
+      floor.addColorStop(0,   "rgba(255,255,255,0)");
+      floor.addColorStop(0.5, "rgba(248,248,247,0.45)");
+      floor.addColorStop(1,   "rgba(244,244,243,0.85)");
+      ctx.fillStyle = floor;
+      ctx.fillRect(0, H * 0.68, W, H * 0.32);
 
       // ── 2. REFLEXIÓN EN EL PISO (clave del estilo catálogo) ──────────
       // Línea de horizonte donde tocan las ruedas
