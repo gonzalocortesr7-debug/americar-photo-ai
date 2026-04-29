@@ -16,60 +16,76 @@ function compositeStudio(cutoutB64, analysis, logoText) {
       canvas.height = H;
       const ctx = canvas.getContext("2d");
 
-      // ── 1. FONDO CABINA VIRTUAL ───────────────────────────────────────
-      // Base gris medio — oscuro suficiente para que se vea claramente gris
-      ctx.fillStyle = "#b4b4b4";
+      // ── 1. CABINA VIRTUAL (ciclorama fotográfico estilo catálogo) ────
+      // Base gris-blanco (ni blanco puro ni gris evidente)
+      ctx.fillStyle = "#efefef";
       ctx.fillRect(0, 0, W, H);
 
-      // Luz de estudio cenital (softbox overhead)
-      const light = ctx.createRadialGradient(W * 0.5, 0, 0, W * 0.5, H * 0.3, W * 0.8);
-      light.addColorStop(0,   "rgba(255,255,255,0.55)");
-      light.addColorStop(0.4, "rgba(240,240,240,0.18)");
-      light.addColorStop(1,   "rgba(0,0,0,0)");
-      ctx.fillStyle = light;
+      // Luz cenital amplia y suave (softbox grande arriba)
+      const topLight = ctx.createRadialGradient(W * 0.5, H * 0.18, 0, W * 0.5, H * 0.35, W * 0.95);
+      topLight.addColorStop(0,    "rgba(255,255,255,0.7)");
+      topLight.addColorStop(0.5,  "rgba(255,255,255,0.22)");
+      topLight.addColorStop(1,    "rgba(255,255,255,0)");
+      ctx.fillStyle = topLight;
       ctx.fillRect(0, 0, W, H);
 
-      // Piso (área inferior más oscura)
-      const floorGrad = ctx.createLinearGradient(0, H * 0.58, 0, H);
-      floorGrad.addColorStop(0, "rgba(0,0,0,0)");
-      floorGrad.addColorStop(1, "rgba(0,0,0,0.32)");
-      ctx.fillStyle = floorGrad;
-      ctx.fillRect(0, H * 0.58, W, H * 0.42);
-
-      // Viñeta lateral (bordes más oscuros, profundidad)
-      const vig = ctx.createRadialGradient(W * 0.5, H * 0.42, H * 0.1, W * 0.5, H * 0.42, W * 0.88);
+      // Vignette muy sutil para profundidad de ciclorama (esquinas levemente más oscuras)
+      const vig = ctx.createRadialGradient(W * 0.5, H * 0.45, H * 0.3, W * 0.5, H * 0.45, W * 0.95);
       vig.addColorStop(0, "rgba(0,0,0,0)");
-      vig.addColorStop(1, "rgba(0,0,0,0.28)");
+      vig.addColorStop(1, "rgba(0,0,0,0.08)");
       ctx.fillStyle = vig;
       ctx.fillRect(0, 0, W, H);
 
-      // ── 2. SOMBRA DE PISO (bajo el auto) ─────────────────────────────
+      // ── 2. REFLEXIÓN EN EL PISO (clave del estilo catálogo) ──────────
+      // Línea de horizonte donde tocan las ruedas
+      const reflY = H * 0.86;
       ctx.save();
-      ctx.filter = "blur(38px)";
-      ctx.globalAlpha = 0.52;
-      ctx.fillStyle = "#3a3a3a";
+      ctx.translate(0, reflY * 2);
+      ctx.scale(1, -1);
+      ctx.globalAlpha = 0.22;
+      ctx.drawImage(img, 0, 0, W, H);
+      ctx.restore();
+
+      // Fade-out gradual de la reflexión hacia el borde inferior
+      const reflFade = ctx.createLinearGradient(0, reflY, 0, H);
+      reflFade.addColorStop(0,    "rgba(239,239,239,0)");
+      reflFade.addColorStop(0.35, "rgba(239,239,239,0.55)");
+      reflFade.addColorStop(1,    "rgba(239,239,239,1)");
+      ctx.fillStyle = reflFade;
+      ctx.fillRect(0, reflY, W, H - reflY);
+
+      // ── 3. SOMBRA DE CONTACTO (bajo las ruedas) ──────────────────────
+      ctx.save();
+      ctx.filter = "blur(22px)";
+      ctx.globalAlpha = 0.28;
+      ctx.fillStyle = "#404040";
       ctx.beginPath();
-      ctx.ellipse(W * 0.5, H * 0.875, W * 0.44, H * 0.058, 0, 0, Math.PI * 2);
+      ctx.ellipse(W * 0.5, H * 0.862, W * 0.38, H * 0.028, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
-      // ── 3. AUTO (píxeles 100% originales del recorte) ─────────────────
+      // ── 4. AUTO (píxeles 100% originales del recorte) ─────────────────
       ctx.drawImage(img, 0, 0, W, H);
 
-      // ── 4. TAPADO DE PATENTE (solo heurística — Claude no da coords fiables) ──
+      // ── 5. TAPADO DE PATENTE (rectángulo blanco + texto oscuro, estilo catálogo) ──
       const isRear = (analysis?.orientation?.visibleSide || "").includes("rear");
-      // Frente/3/4: patente ~33-57% horizontal, ~70-77% vertical
-      // Posterior:  patente similar pero ajustada
       const pb = isRear
-        ? { x: 0.33, y: 0.71, w: 0.25, h: 0.07 }
-        : { x: 0.33, y: 0.70, w: 0.25, h: 0.07 };
+        ? { x: 0.35, y: 0.715, w: 0.22, h: 0.058 }
+        : { x: 0.35, y: 0.71,  w: 0.22, h: 0.058 };
 
       if (analysis?.plate?.visible !== false) {
         const px = pb.x * W, py = pb.y * H, pw = pb.w * W, ph = pb.h * H;
-        ctx.fillStyle = "#121212";
-        ctx.fillRect(px, py, pw, ph);
-        ctx.font = `600 ${Math.max(9, ph * 0.5)}px Arial,sans-serif`;
+        // Sombra sutil bajo el rectángulo
+        ctx.save();
+        ctx.shadowColor = "rgba(0,0,0,0.25)";
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 2;
         ctx.fillStyle = "#ffffff";
+        ctx.fillRect(px, py, pw, ph);
+        ctx.restore();
+        // Texto CLICAR en gris oscuro
+        ctx.font = `600 ${Math.max(10, ph * 0.55)}px Arial,sans-serif`;
+        ctx.fillStyle = "#1f1f1f";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText((logoText || "CLICAR").toUpperCase(), px + pw / 2, py + ph / 2);
