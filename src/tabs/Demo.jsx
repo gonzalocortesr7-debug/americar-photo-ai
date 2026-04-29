@@ -2,127 +2,6 @@ import { useEffect, useRef, useState } from "react";
 
 const LS_WORKER = "americar.workerUrl";
 
-function compositeStudio(cutoutB64, analysis, logoText) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const timer = setTimeout(() => reject(new Error("compositeStudio timeout")), 30000);
-
-    img.onload = () => {
-      clearTimeout(timer);
-      const W = img.naturalWidth;
-      const H = img.naturalHeight;
-      const canvas = document.createElement("canvas");
-      canvas.width = W;
-      canvas.height = H;
-      const ctx = canvas.getContext("2d");
-
-      // ── 1. CICLORAMA INFINITO (cabina virtual real) ──────────────────
-      // Base blanca de pared del ciclorama
-      ctx.fillStyle = "#f4f4f4";
-      ctx.fillRect(0, 0, W, H);
-
-      // Pared superior: leve gradiente vertical (más oscuro arriba, más claro hacia el horizonte)
-      const wall = ctx.createLinearGradient(0, 0, 0, H * 0.7);
-      wall.addColorStop(0,    "rgba(195,200,205,0.45)"); // techo del ciclorama (más oscuro y frío)
-      wall.addColorStop(0.45, "rgba(220,222,225,0.25)");
-      wall.addColorStop(1,    "rgba(255,255,255,0)");    // hacia la curva
-      ctx.fillStyle = wall;
-      ctx.fillRect(0, 0, W, H * 0.7);
-
-      // Luz central cenital (softbox arriba-centro) — punto brillante característico del ciclorama
-      const keyLight = ctx.createRadialGradient(W * 0.5, H * 0.1, 0, W * 0.5, H * 0.4, W * 0.7);
-      keyLight.addColorStop(0,    "rgba(255,255,255,0.55)");
-      keyLight.addColorStop(0.5,  "rgba(255,255,255,0.18)");
-      keyLight.addColorStop(1,    "rgba(255,255,255,0)");
-      ctx.fillStyle = keyLight;
-      ctx.fillRect(0, 0, W, H);
-
-      // Vignette de las esquinas superiores (muros laterales del ciclorama)
-      const sideVig = ctx.createRadialGradient(W * 0.5, H * 0.3, W * 0.25, W * 0.5, H * 0.3, W * 0.85);
-      sideVig.addColorStop(0, "rgba(0,0,0,0)");
-      sideVig.addColorStop(1, "rgba(70,75,80,0.18)");
-      ctx.fillStyle = sideVig;
-      ctx.fillRect(0, 0, W, H * 0.75);
-
-      // Curva del ciclorama: banda sutil donde la pared se transforma en piso
-      const curve = ctx.createLinearGradient(0, H * 0.55, 0, H * 0.78);
-      curve.addColorStop(0,   "rgba(0,0,0,0)");
-      curve.addColorStop(0.4, "rgba(0,0,0,0.05)");
-      curve.addColorStop(1,   "rgba(0,0,0,0)");
-      ctx.fillStyle = curve;
-      ctx.fillRect(0, H * 0.55, W, H * 0.23);
-
-      // Piso del ciclorama (un poco más cálido y claro que la pared)
-      const floor = ctx.createLinearGradient(0, H * 0.68, 0, H);
-      floor.addColorStop(0,   "rgba(255,255,255,0)");
-      floor.addColorStop(0.5, "rgba(248,248,247,0.45)");
-      floor.addColorStop(1,   "rgba(244,244,243,0.85)");
-      ctx.fillStyle = floor;
-      ctx.fillRect(0, H * 0.68, W, H * 0.32);
-
-      // ── 2. REFLEXIÓN EN EL PISO (clave del estilo catálogo) ──────────
-      // Línea de horizonte donde tocan las ruedas
-      const reflY = H * 0.86;
-      ctx.save();
-      ctx.translate(0, reflY * 2);
-      ctx.scale(1, -1);
-      ctx.globalAlpha = 0.22;
-      ctx.drawImage(img, 0, 0, W, H);
-      ctx.restore();
-
-      // Fade-out gradual de la reflexión hacia el borde inferior
-      const reflFade = ctx.createLinearGradient(0, reflY, 0, H);
-      reflFade.addColorStop(0,    "rgba(239,239,239,0)");
-      reflFade.addColorStop(0.35, "rgba(239,239,239,0.55)");
-      reflFade.addColorStop(1,    "rgba(239,239,239,1)");
-      ctx.fillStyle = reflFade;
-      ctx.fillRect(0, reflY, W, H - reflY);
-
-      // ── 3. SOMBRA DE CONTACTO (bajo las ruedas) ──────────────────────
-      ctx.save();
-      ctx.filter = "blur(22px)";
-      ctx.globalAlpha = 0.28;
-      ctx.fillStyle = "#404040";
-      ctx.beginPath();
-      ctx.ellipse(W * 0.5, H * 0.862, W * 0.38, H * 0.028, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      // ── 4. AUTO (píxeles 100% originales del recorte) ─────────────────
-      ctx.drawImage(img, 0, 0, W, H);
-
-      // ── 5. TAPADO DE PATENTE (rectángulo blanco + texto oscuro, estilo catálogo) ──
-      const isRear = (analysis?.orientation?.visibleSide || "").includes("rear");
-      const pb = isRear
-        ? { x: 0.35, y: 0.715, w: 0.22, h: 0.058 }
-        : { x: 0.35, y: 0.71,  w: 0.22, h: 0.058 };
-
-      if (analysis?.plate?.visible !== false) {
-        const px = pb.x * W, py = pb.y * H, pw = pb.w * W, ph = pb.h * H;
-        // Sombra sutil bajo el rectángulo
-        ctx.save();
-        ctx.shadowColor = "rgba(0,0,0,0.25)";
-        ctx.shadowBlur = 6;
-        ctx.shadowOffsetY = 2;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(px, py, pw, ph);
-        ctx.restore();
-        // Texto CLICAR en gris oscuro
-        ctx.font = `600 ${Math.max(10, ph * 0.55)}px Arial,sans-serif`;
-        ctx.fillStyle = "#1f1f1f";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText((logoText || "CLICAR").toUpperCase(), px + pw / 2, py + ph / 2);
-      }
-
-      resolve(canvas.toDataURL("image/png").split(",")[1]);
-    };
-
-    img.onerror = (e) => { clearTimeout(timer); reject(e); };
-    img.src = "data:image/png;base64," + cutoutB64;
-  });
-}
-
 const PUBLICATION_SLOT = "frente-der";
 
 const SLOTS = [
@@ -155,7 +34,6 @@ export default function Demo() {
 
   const [phase, setPhase] = useState("idle");
   const [analysis, setAnalysis] = useState(null);
-  const [promptUsed, setPromptUsed] = useState(null);
   const [resultB64, setResultB64] = useState(null);
   const [error, setError] = useState("");
   const fileRef = useRef(null);
@@ -179,7 +57,7 @@ export default function Demo() {
       const res = await fetch(workerUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "process", image: imageB64, mime, logoText }),
+        body: JSON.stringify({ action: "process", image: imageB64, mime, logoText, quality: "high" }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: res.statusText }));
@@ -187,13 +65,7 @@ export default function Demo() {
       }
       const data = await res.json();
       setAnalysis(data.analysis);
-      setPromptUsed(null);
-      if (data.cutout) {
-        const final = await compositeStudio(data.cutout, data.analysis, logoText);
-        setResultB64(final);
-      } else {
-        setResultB64(data.image);
-      }
+      setResultB64(data.image);
       setPhase("done");
     } catch (e) {
       setError(e.message || String(e));
@@ -211,7 +83,7 @@ export default function Demo() {
 
   const reset = () => {
     setFile(null); setImageB64(null); setPreview(null); setMime(null);
-    setAnalysis(null); setPromptUsed(null); setResultB64(null); setPhase("idle"); setError("");
+    setAnalysis(null); setResultB64(null); setPhase("idle"); setError("");
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -317,7 +189,7 @@ export default function Demo() {
           <div className="rounded-xl bg-slate-950 border border-slate-800 p-6 text-center">
             <div className="inline-block w-8 h-8 border-2 border-slate-700 border-t-brand-500 rounded-full animate-spin" />
             <p className="text-slate-400 text-sm mt-3">
-              Procesando… Claude analiza la foto + remove.bg recorta el auto + se compone el fondo de cabina virtual.
+              Procesando la inspección… Claude analiza + Nano Banana (Gemini 2.5 Flash Image) aplica. En producción se suma el cutout con remove.bg antes de la edición.
             </p>
           </div>
         )}
@@ -334,10 +206,10 @@ export default function Demo() {
               <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
                 <Stat k="Marca" v={analysis.vehicle.brand} />
                 <Stat k="Modelo" v={analysis.vehicle.model} />
-                <Stat k="Color detectado" v={analysis.vehicle.color} />
+                <Stat k="Color" v={analysis.vehicle.color} />
                 <Stat k="Carrocería" v={analysis.vehicle.bodyType} />
-                <Stat k="Ángulo" v={analysis.orientation?.visibleSide} />
-                {analysis.plate?.text && <Stat k="Patente detectada" v={analysis.plate.text} />}
+                <Stat k="Ángulo" v={analysis.vehicle.angle} />
+                {analysis.issues?.plateText && <Stat k="Patente detectada" v={analysis.issues.plateText} />}
               </div>
             )}
             <div className="rounded-xl bg-slate-950 border border-slate-800 p-5 space-y-4">
@@ -364,27 +236,6 @@ export default function Demo() {
                 </button>
               </div>
             </div>
-
-            {/* Debug: análisis Claude + prompt enviado a Gemini */}
-            <details className="rounded-xl bg-slate-900/60 border border-slate-700 p-4 text-xs">
-              <summary className="cursor-pointer text-slate-300 font-medium text-sm">🔍 Debug — Análisis Claude + Prompt enviado a Gemini</summary>
-              <div className="mt-4 space-y-4">
-                <div>
-                  <div className="text-slate-400 uppercase tracking-wider mb-1 font-semibold">Análisis Claude (JSON)</div>
-                  <pre className="bg-slate-950 rounded-lg p-3 overflow-auto text-slate-300 leading-relaxed whitespace-pre-wrap">
-                    {JSON.stringify(analysis, null, 2)}
-                  </pre>
-                </div>
-                {promptUsed && (
-                  <div>
-                    <div className="text-slate-400 uppercase tracking-wider mb-1 font-semibold">Prompt enviado a Gemini (edit prompt)</div>
-                    <pre className="bg-slate-950 rounded-lg p-3 overflow-auto text-slate-300 leading-relaxed whitespace-pre-wrap">
-                      {promptUsed}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            </details>
           </div>
         )}
       </div>

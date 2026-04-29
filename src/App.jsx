@@ -34,9 +34,14 @@ export default function App() {
               <p className="text-xs text-slate-400 mt-1">Propuesta técnica v3.0</p>
             </div>
           </div>
-          <span className="text-xs text-slate-400">
-            Claude · remove.bg · Canvas
-          </span>
+          <a
+            href="https://ai.google.dev/gemini-api/docs/image-generation"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-slate-400 hover:text-brand-300"
+          >
+            Nano Banana · Gemini 2.5 Flash Image ↗
+          </a>
         </div>
 
         <nav className="max-w-6xl mx-auto px-4 overflow-x-auto">
