@@ -13,9 +13,9 @@ const STEPS = [
   },
   {
     n: 2,
-    title: "Análisis con Claude Sonnet 4",
-    desc: "Claude inspecciona la foto y devuelve JSON factual: lado visible del auto (ej. 'front-right 3/4, faro derecho del conductor en el centro del encuadre'), zonas sucias, reflejos parásitos, ubicación exacta de la patente, rayones/chips/desgaste que DEBEN preservarse. No genera prompt libre.",
-    tech: "Anthropic · messages + vision → JSON",
+    title: "Análisis con GPT-4o",
+    desc: "GPT-4o inspecciona la foto y devuelve JSON factual: lado visible del auto (ej. 'front-right 3/4, faro derecho del conductor en el centro del encuadre'), zonas sucias, reflejos parásitos, ubicación exacta de la patente, rayones/chips/desgaste que DEBEN preservarse. No genera prompt libre.",
+    tech: "OpenAI · chat.completions + vision → JSON",
   },
   {
     n: 3,
@@ -26,7 +26,7 @@ const STEPS = [
   {
     n: 4,
     title: "Correcciones con Nano Banana (Gemini)",
-    desc: "Con las máscaras de Claude, Nano Banana hace ediciones locales dentro del cutout: quita el barro de las llantas, el polvo del capó, los reflejos parásitos, y corrige la iluminación. Nano Banana preserva identidad del sujeto mejor que alternativas generativas; solo toca lo enmascarado.",
+    desc: "Con las máscaras de GPT-4o, Nano Banana hace ediciones locales dentro del cutout: quita el barro de las llantas, el polvo del capó, los reflejos parásitos, y corrige la iluminación. Nano Banana preserva identidad del sujeto mejor que alternativas generativas; solo toca lo enmascarado.",
     tech: "Google Gemini 2.5 Flash Image · edits con mask",
   },
   {
@@ -38,7 +38,7 @@ const STEPS = [
   {
     n: 6,
     title: "Overlay de patente",
-    desc: "Sobre la imagen ya compuesta se dibuja un cuadro oscuro con el texto/logo Americar en las coordenadas detectadas por Claude.",
+    desc: "Sobre la imagen ya compuesta se dibuja un cuadro oscuro con el texto/logo Americar en las coordenadas detectadas por GPT-4o.",
     tech: "Canvas drawImage + roundRect",
   },
   {

@@ -38,7 +38,7 @@ export default function Arquitectura() {
                 ▼
  ┌───────────────────────────────────────────┐
  │  Cloudflare Worker — pipeline IA          │
- │  1. Claude Sonnet 4 → JSON factual        │
+ │  1. GPT-4o → JSON factual                 │
  │  2. remove.bg type=car → cutout 1:1       │
  │  3. Nano Banana (Gemini) → correcciones   │
  │     acotadas por máscara                  │

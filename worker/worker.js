@@ -84,7 +84,7 @@ export default {
 
       if (action === "analyze") {
         if (!body.image) return json({ error: "missing image" }, 400, cors);
-        const result = await analyzeWithClaude(env, body.image, body.mime);
+        const result = await analyzeWithOpenAI(env, body.image, body.mime);
         return json(result, 200, cors);
       }
 
@@ -97,7 +97,7 @@ export default {
 
       if (action === "process") {
         if (!body.image) return json({ error: "missing image" }, 400, cors);
-        const analysis = await analyzeWithClaude(env, body.image, body.mime);
+        const analysis = await analyzeWithOpenAI(env, body.image, body.mime);
         const prompt = buildEditPrompt(analysis, body.logoText);
         const image = await editWithNanoBanana(env, body.image, body.mime, prompt);
         return json({ image, analysis, promptUsed: prompt, editor: "gemini-2.5-flash-image" }, 200, cors);
@@ -110,23 +110,26 @@ export default {
   },
 };
 
-async function analyzeWithClaude(env, imageB64, mime) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+async function analyzeWithOpenAI(env, imageB64, mime) {
+  if (!env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY not configured on worker — run `npx wrangler secret put OPENAI_API_KEY`.");
+  }
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
+      "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "claude-opus-4-7",
+      model: "gpt-4o",
       max_tokens: 4000,
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "user",
           content: [
-            { type: "image", source: { type: "base64", media_type: mime || "image/jpeg", data: imageB64 } },
             { type: "text", text: ANALYZE_INSTRUCTION },
+            { type: "image_url", image_url: { url: `data:${mime || "image/jpeg"};base64,${imageB64}` } },
           ],
         },
       ],
@@ -135,10 +138,10 @@ async function analyzeWithClaude(env, imageB64, mime) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`anthropic ${res.status}: ${text.slice(0, 300)}`);
+    throw new Error(`openai ${res.status}: ${text.slice(0, 300)}`);
   }
   const data = await res.json();
-  const text = data?.content?.map((c) => c.text || "").join("").trim();
+  const text = (data?.choices?.[0]?.message?.content || "").trim();
   const cleaned = text.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
   try {
     return JSON.parse(cleaned);
@@ -148,7 +151,7 @@ async function analyzeWithClaude(env, imageB64, mime) {
     if (start >= 0 && end > start) {
       try { return JSON.parse(cleaned.slice(start, end + 1)); } catch {}
     }
-    throw new Error("Claude did not return valid JSON. Raw (first 800): " + text.slice(0, 800));
+    throw new Error("OpenAI did not return valid JSON. Raw (first 800): " + text.slice(0, 800));
   }
 }
 
