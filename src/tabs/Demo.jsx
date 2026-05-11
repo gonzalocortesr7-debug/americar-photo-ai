@@ -35,6 +35,9 @@ export default function Demo() {
   const [phase, setPhase] = useState("idle");
   const [analysis, setAnalysis] = useState(null);
   const [resultB64, setResultB64] = useState(null);
+  const [promptUsed, setPromptUsed] = useState("");
+  const [editedPrompt, setEditedPrompt] = useState("");
+  const [regenLoading, setRegenLoading] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef(null);
 
@@ -43,7 +46,8 @@ export default function Demo() {
   const onFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    setError(""); setAnalysis(null); setResultB64(null); setPhase("idle");
+    setError(""); setAnalysis(null); setResultB64(null);
+    setPromptUsed(""); setEditedPrompt(""); setPhase("idle");
     setFile(f); setMime(f.type); setPreview(URL.createObjectURL(f));
     const r = new FileReader();
     r.onload = () => { const s = r.result; setImageB64(s.substring(s.indexOf(",") + 1)); };
@@ -66,11 +70,40 @@ export default function Demo() {
       const data = await res.json();
       setAnalysis(data.analysis);
       setResultB64(data.image);
+      setPromptUsed(data.promptUsed || "");
+      setEditedPrompt(data.promptUsed || "");
       setPhase("done");
     } catch (e) {
       setError(e.message || String(e));
       setPhase("idle");
     }
+  };
+
+  const regenerate = async () => {
+    if (!imageB64 || !editedPrompt.trim()) return;
+    setRegenLoading(true); setError("");
+    try {
+      const res = await fetch(workerUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "generate", image: imageB64, mime, prompt: editedPrompt }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(body.error || res.statusText);
+      }
+      const data = await res.json();
+      setResultB64(data.image);
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setRegenLoading(false);
+    }
+  };
+
+  const restorePrompt = () => setEditedPrompt(promptUsed);
+  const copyPrompt = () => {
+    navigator.clipboard?.writeText(editedPrompt).catch(() => {});
   };
 
   const download = () => {
@@ -83,7 +116,9 @@ export default function Demo() {
 
   const reset = () => {
     setFile(null); setImageB64(null); setPreview(null); setMime(null);
-    setAnalysis(null); setResultB64(null); setPhase("idle"); setError("");
+    setAnalysis(null); setResultB64(null);
+    setPromptUsed(""); setEditedPrompt(""); setRegenLoading(false);
+    setPhase("idle"); setError("");
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -226,6 +261,18 @@ export default function Demo() {
               </div>
 
               <ChangesApplied analysis={analysis} />
+
+              {promptUsed && (
+                <PromptEditor
+                  promptUsed={promptUsed}
+                  editedPrompt={editedPrompt}
+                  setEditedPrompt={setEditedPrompt}
+                  onRegenerate={regenerate}
+                  onRestore={restorePrompt}
+                  onCopy={copyPrompt}
+                  loading={regenLoading}
+                />
+              )}
 
               <div className="flex gap-3 flex-wrap">
                 <button onClick={download} className="bg-brand-500 hover:bg-brand-600 text-white font-semibold px-5 py-2 rounded-lg">
@@ -424,6 +471,70 @@ function ChangesApplied({ analysis }) {
         </ul>
       </div>
     </div>
+  );
+}
+
+function PromptEditor({ promptUsed, editedPrompt, setEditedPrompt, onRegenerate, onRestore, onCopy, loading }) {
+  const dirty = editedPrompt !== promptUsed;
+  return (
+    <details open className="rounded-xl bg-slate-950 border border-brand-700/40 p-4">
+      <summary className="cursor-pointer flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-brand-300 text-sm uppercase tracking-wide">Prompt enviado a Nano Banana</span>
+          {dirty && (
+            <span className="text-[10px] uppercase tracking-wide font-bold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/40">
+              modificado
+            </span>
+          )}
+        </div>
+        <span className="text-[11px] text-slate-500">Editalo y volvé a generar para probar cambios puntuales.</span>
+      </summary>
+      <div className="mt-3 space-y-3">
+        <textarea
+          value={editedPrompt}
+          onChange={(e) => setEditedPrompt(e.target.value)}
+          spellCheck={false}
+          rows={14}
+          className="w-full bg-slate-900 border border-slate-800 rounded-md px-3 py-2 text-xs font-mono text-slate-200 leading-relaxed resize-y focus:outline-none focus:border-brand-500"
+        />
+        <div className="flex gap-2 flex-wrap items-center">
+          <button
+            onClick={onRegenerate}
+            disabled={loading || !editedPrompt.trim()}
+            className="bg-brand-500 hover:bg-brand-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg text-sm inline-flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Regenerando…
+              </>
+            ) : (
+              "Regenerar con este prompt"
+            )}
+          </button>
+          <button
+            onClick={onRestore}
+            disabled={!dirty || loading}
+            className="border border-slate-700 hover:border-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 px-4 py-2 rounded-lg text-sm"
+          >
+            Restaurar prompt original
+          </button>
+          <button
+            onClick={onCopy}
+            disabled={loading}
+            className="border border-slate-700 hover:border-brand-500 text-slate-300 px-4 py-2 rounded-lg text-sm"
+          >
+            Copiar
+          </button>
+          <span className="text-[11px] text-slate-500 ml-auto">
+            {editedPrompt.length.toLocaleString("es-CL")} caracteres
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          Al regenerar se reutiliza la <strong>misma foto original</strong> y este prompt — no se vuelve a llamar al análisis con GPT-4o, así que es rápido y barato (solo costo de Nano Banana).
+        </p>
+      </div>
+    </details>
   );
 }
 
