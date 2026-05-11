@@ -22,7 +22,7 @@ const PHASES = [
       "Botón dual por slot: Capturar (cámara con silueta) + Subir (galería)",
       "Slot ★ Frente Derecho destacado como FOTO DE PUBLICACIÓN en la UI del inspector",
       "Nuevo endpoint en BFF: POST /inspection/:id/publication-photo",
-      "Cloudflare Worker orquestando: Claude (análisis) → remove.bg (cutout) → Nano Banana (correcciones por máscara) → Canvas compose (estudio + patente)",
+      "Cloudflare Worker orquestando: GPT-4o (análisis) → remove.bg (cutout) → Nano Banana (correcciones por máscara) → Canvas compose (estudio + patente)",
       "Lightbox con react-photo-view y crop post-captura con react-image-crop (aspect fijo)",
       "Slider antes/después con react-compare-slider para verificar la foto procesada",
       "Webhook de estado: pending → processing → done → error",

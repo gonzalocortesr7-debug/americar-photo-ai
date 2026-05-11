@@ -79,7 +79,7 @@ export default function Arquitectura() {
           <StackCard
             title="Pipeline IA (Cloudflare Worker)"
             items={[
-              "Claude Sonnet 4 — análisis factual: lado visible, wear a preservar, patente",
+              "GPT-4o — análisis factual: lado visible, wear a preservar, patente",
               "remove.bg (type=car) — cutout pixel-perfect del auto",
               "Nano Banana (Google Gemini image generation) — correcciones acotadas por máscara",
               "Canvas / Sharp @ Worker — compositing del estudio virtual y overlay de patente",

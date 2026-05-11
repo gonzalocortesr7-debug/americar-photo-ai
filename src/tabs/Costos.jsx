@@ -1,13 +1,13 @@
 import { useState } from "react";
 
-// Todos los precios oficiales de los proveedores (Anthropic, Google, remove.bg, Cloudflare)
+// Todos los precios oficiales de los proveedores (OpenAI, Google, remove.bg, Cloudflare)
 // están publicados en USD. Abajo se muestran también en CLP para referencia Americar.
 // Referencia abril 2026.
 const USD_TO_CLP = 960;
 
-// Claude Sonnet 4: input $3 / MTok · output $15 / MTok (Anthropic).
-// Una foto 1024² + prompt de análisis ≈ 1.600 input + 500 output tokens → ~$0.0123 / análisis.
-const CLAUDE_PER_ANALYSIS = 0.013;
+// GPT-4o: input $2.50 / MTok · output $10 / MTok (OpenAI).
+// Una foto 1024² + prompt de análisis ≈ 1.600 input + 500 output tokens → ~$0.009 / análisis.
+const GPT4O_PER_ANALYSIS = 0.009;
 // Nano Banana (Gemini 2.5 Flash Image): $30 / 1M output tokens · 1.290 tokens por imagen → $0.039 / edición.
 const GEMINI_PER_EDIT = 0.039;
 // remove.bg: PAYG $0.20 / call; plan 2000 imgs/mes ≈ $0.07 por imagen.
@@ -19,10 +19,10 @@ const WORKER_COST = 0.0;
 const SCENARIOS = {
   "sin-segmentacion": {
     label: "Sin segmentación (demo actual)",
-    desc: "Claude analiza + Nano Banana edita directo. Más barato pero sin garantía pixel-perfect del auto.",
-    perInspection: CLAUDE_PER_ANALYSIS + GEMINI_PER_EDIT + WORKER_COST,
+    desc: "GPT-4o analiza + Nano Banana edita directo. Más barato pero sin garantía pixel-perfect del auto.",
+    perInspection: GPT4O_PER_ANALYSIS + GEMINI_PER_EDIT + WORKER_COST,
     breakdown: [
-      { k: "Claude Sonnet 4 · análisis", v: CLAUDE_PER_ANALYSIS },
+      { k: "GPT-4o · análisis", v: GPT4O_PER_ANALYSIS },
       { k: "Nano Banana · edición", v: GEMINI_PER_EDIT },
       { k: "Cloudflare Worker", v: WORKER_COST },
     ],
@@ -30,9 +30,9 @@ const SCENARIOS = {
   "produccion-payg": {
     label: "Producción (remove.bg pay-as-you-go)",
     desc: "Pipeline completo: análisis + cutout + edición acotada por máscara. Orientación y wear garantizados.",
-    perInspection: CLAUDE_PER_ANALYSIS + REMOVEBG_PAYG + GEMINI_PER_EDIT + WORKER_COST,
+    perInspection: GPT4O_PER_ANALYSIS + REMOVEBG_PAYG + GEMINI_PER_EDIT + WORKER_COST,
     breakdown: [
-      { k: "Claude Sonnet 4 · análisis", v: CLAUDE_PER_ANALYSIS },
+      { k: "GPT-4o · análisis", v: GPT4O_PER_ANALYSIS },
       { k: "remove.bg · cutout (PAYG)", v: REMOVEBG_PAYG },
       { k: "Nano Banana · edición", v: GEMINI_PER_EDIT },
       { k: "Cloudflare Worker", v: WORKER_COST },
@@ -41,9 +41,9 @@ const SCENARIOS = {
   "produccion-volumen": {
     label: "Producción con volumen (remove.bg 2k/mes)",
     desc: "Mismo pipeline de producción pero con plan remove.bg por volumen. Recomendado para Americar a escala.",
-    perInspection: CLAUDE_PER_ANALYSIS + REMOVEBG_VOLUME + GEMINI_PER_EDIT + WORKER_COST,
+    perInspection: GPT4O_PER_ANALYSIS + REMOVEBG_VOLUME + GEMINI_PER_EDIT + WORKER_COST,
     breakdown: [
-      { k: "Claude Sonnet 4 · análisis", v: CLAUDE_PER_ANALYSIS },
+      { k: "GPT-4o · análisis", v: GPT4O_PER_ANALYSIS },
       { k: "remove.bg · cutout (plan 2k)", v: REMOVEBG_VOLUME },
       { k: "Nano Banana · edición", v: GEMINI_PER_EDIT },
       { k: "Cloudflare Worker", v: WORKER_COST },
@@ -79,7 +79,7 @@ export default function Costos() {
           Sin infra fija: Cloudflare Workers y GitHub Pages free tier absorben el hosting.
         </p>
         <div className="mt-4 rounded-xl bg-brand-600/10 border border-brand-500/40 p-4 text-sm text-slate-200">
-          <strong className="text-brand-300">Moneda:</strong> todos los proveedores (Anthropic, Google, remove.bg,
+          <strong className="text-brand-300">Moneda:</strong> todos los proveedores (OpenAI, Google, remove.bg,
           Cloudflare) publican sus precios en <strong>USD</strong>. En este tab se muestran los valores en USD
           y su equivalente en <strong>CLP</strong> al tipo de cambio referencial{" "}
           <code className="text-brand-300">1 USD = {USD_TO_CLP.toLocaleString("es-CL")} CLP</code> (abril 2026).
@@ -91,12 +91,12 @@ export default function Costos() {
         <h3 className="text-lg font-semibold mb-3">Costo unitario por etapa</h3>
         <div className="grid md:grid-cols-3 gap-4">
           <StageCard
-            provider="Anthropic"
+            provider="OpenAI"
             stage="Análisis"
-            model="Claude Sonnet 4 (vision)"
-            price={CLAUDE_PER_ANALYSIS}
+            model="GPT-4o (vision)"
+            price={GPT4O_PER_ANALYSIS}
             detail="~1.600 tokens input + 500 output por imagen. Devuelve JSON factual: lado visible, wear a preservar, ubicación de patente."
-            pricing="$3 / MTok input · $15 / MTok output"
+            pricing="$2.50 / MTok input · $10 / MTok output"
           />
           <StageCard
             provider="Google"
@@ -173,7 +173,7 @@ export default function Costos() {
         <p className="text-xs text-slate-500 mt-4">
           * Conversión USD→CLP referencial ({USD_TO_CLP.toLocaleString("es-CL")} CLP/USD). Actualizar al tipo de cambio
           del mes para el presupuesto oficial. Al volumen estimado de Americar (hasta 3.000 inspecciones/mes) conviene
-          pedir pricing corporativo a Google Cloud + descuentos en Anthropic enterprise para bajar el ticket unitario.
+          pedir pricing corporativo a Google Cloud + descuentos en OpenAI enterprise para bajar el ticket unitario.
         </p>
       </section>
 
@@ -243,7 +243,7 @@ export default function Costos() {
           <ScenarioExplainer
             title="Sin segmentación"
             tag="más barato"
-            body="El Worker manda la foto directo a Claude (análisis) y a Nano Banana (edición). Es el flujo del demo actual. No hay garantía estructural de que el auto no se modifique: la IA podría espejar, rotar o rejuvenecer. Útil para pilotos y para avisos internos."
+            body="El Worker manda la foto directo a GPT-4o (análisis) y a Nano Banana (edición). Es el flujo del demo actual. No hay garantía estructural de que el auto no se modifique: la IA podría espejar, rotar o rejuvenecer. Útil para pilotos y para avisos internos."
           />
           <ScenarioExplainer
             title="Producción PAYG"

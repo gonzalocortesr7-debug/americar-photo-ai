@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 // Supuestos de costo para el modo IA (tope alto de referencia).
-// Una pasada por frame con Claude + Nano Banana ≈ $0.052; con remove.bg volumen ≈ $0.122.
+// Una pasada por frame con GPT-4o + Nano Banana ≈ $0.048; con remove.bg volumen ≈ $0.118.
 const FRAMES_STD = 24;
 const FRAMES_HIGH = 36;
 const PER_FRAME_RAW = 0;
@@ -81,7 +81,7 @@ export default function Spin360() {
           />
           <ModeCard
             title="Modo B — 360 full IA (paridad Impel)"
-            pitch="Cada frame del spin pasa por el pipeline Claude + Nano Banana + remove.bg para fondo studio."
+            pitch="Cada frame del spin pasa por el pipeline GPT-4o + Nano Banana + remove.bg para fondo studio."
             pros={[
               "Paridad visual total con SpinCar/Impel",
               "Branding consistente: todo el giro sobre cyclorama gris y piso reflectante",
@@ -269,7 +269,7 @@ export default function Spin360() {
           <Phase
             title="Fase 7 — Spin 360 Full IA (si el engagement justifica)"
             items={[
-              "Pipeline batch: cada frame pasa por Claude + remove.bg + Nano Banana",
+              "Pipeline batch: cada frame pasa por GPT-4o + remove.bg + Nano Banana",
               "Concurrencia controlada en el Worker (pool de 8)",
               "Validación de consistencia entre frames (mismo fondo, misma luz)",
               "Activar solo si vemos uplift medible vs. Modo A",
