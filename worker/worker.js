@@ -91,6 +91,66 @@ const buildEditPrompt = (analysis, logoText) => {
   ].join("\n");
 };
 
+const buildEditPromptEs = (analysis, logoText) => {
+  const v = analysis?.vehicle || {};
+  const o = analysis?.orientation || {};
+  const c = analysis?.condition || {};
+  const p = analysis?.plate || {};
+  const wear = (c.existingWear || []).join("; ") || "todo el desgaste existente";
+  const wheels = (c.wheelsState || "").trim() || "las llantas tal cual aparecen en el input — misma suciedad, mismo brake dust, misma mugre en neumáticos, misma condición de los rines";
+  const dirtList = (c.dirtAreas || []).filter(Boolean);
+  const dirt = dirtList.length
+    ? dirtList.join("; ")
+    : "(ninguno — dejá el auto intacto, no limpies nada)";
+  const hasDirt = dirtList.length > 0;
+  const reflections = (c.reflections || []).join("; ") || "reflejos y brillos no deseados";
+  const logoLabel = (logoText || "").trim() || "AMERICAR";
+
+  return [
+    `Editá esta foto exacta de un ${v.color || ""} ${v.brand || ""} ${v.model || ""}. Es un AUTO USADO REAL en el lote de una concesionaria — el cliente necesita ver exactamente cómo se ve esta unidad específica hoy, no una versión idealizada.`,
+    ``,
+    `INTEGRIDAD DEL AUTO USADO — REGLA SUPREMA (anula cualquier otra instrucción):`,
+    `- El auto debe salir de esta edición IDÉNTICO al input en cada aspecto de su condición física.`,
+    `- NO limpies, pulas, repares, restaures, refresques ni "mejores" el auto de ninguna manera.`,
+    `- NO elimines ni atenúes NINGÚN defecto: rayones, chips, abolladuras, swirl marks, pintura desteñida, oxidación, óxido, marcas de piedras, scuffs en bumper, curb rash. TODO queda, en el mismo lugar, con la misma visibilidad.`,
+    `- NO toques las llantas bajo ninguna circunstancia. Llantas, rines, neumáticos, calipers de freno, discos de freno, pasarruedas y cualquier suciedad/polvo/mugre sobre ellos DEBE quedar exactamente como en el input. Estado actual de las llantas: ${wheels}. El pipeline rechazará cualquier output donde las llantas se vean más limpias, más nuevas o distintas de cualquier modo.`,
+    `- NO toques la parte inferior del cuerpo, los lados, los bumpers ni los rocker panels. Cualquier suciedad o mugre acumulada ahí queda.`,
+    `- Si tenés dudas de si una marca en el auto es suciedad o desgaste → DEJALA TAL CUAL. El default es preservación.`,
+    ``,
+    `COLOR DE LA PINTURA — REGLA ABSOLUTA:`,
+    `- El color exacto de la pintura es "${v.color || "el que se ve en el input"}".`,
+    `- NO cambies el tono, saturación, matiz ni finish de la pintura BAJO NINGUNA CIRCUNSTANCIA.`,
+    `- NO conviertas azul oscuro, verde oscuro, gris carbón oscuro ni ningún color oscuro en negro.`,
+    `- NO aclares, oscurezcas, desplaces ni "mejores" el color de la pintura de ninguna manera.`,
+    `- Copiá el color de la pintura directamente desde los pixels del input — no lo interpretes, normalices ni estilices.`,
+    ``,
+    `ORIENTACIÓN (REGLAS ABSOLUTAS — romper cualquiera arruina el output):`,
+    `- El lado visible es "${o.visibleSide || "el mismo que el input"}". ${o.describe || ""}`,
+    `- NO espejes, voltees ni inviertas la imagen horizontal ni verticalmente.`,
+    `- NO rotes el auto. NO cambies el ángulo de cámara, el encuadre ni la perspectiva.`,
+    `- Si el faro del conductor está a la derecha del cuadro en el input, DEBE estar a la derecha del cuadro en el output.`,
+    `- Devolvé EL MISMO LADO del auto que el input. Nunca intercambies izquierda y derecha.`,
+    ``,
+    `CHECKLIST EXPLÍCITO DE PRESERVACIÓN (el output debe verse como el MISMO vehículo usado, NO uno nuevo):`,
+    `- Conservá cada signo de edad y uso: ${wear}.`,
+    `- Conservá la condición actual de la pintura: cada rayón existente, chip, scuff de bumper, área desteñida, marca de piedra queda en su lugar.`,
+    `- Conservá las llantas EXACTAMENTE como en el input: ${wheels}. Mismos rines, mismo desgaste de neumáticos, mismo patrón de brake dust, misma suciedad de pasarruedas. Sin pulir.`,
+    `- Conservá la forma original del cuerpo, proporciones, trim, parrilla, faros, espejos, techo, tinte de ventanas. Sin restyling.`,
+    `- NO hagas que el auto se vea más nuevo, más brillante ni restaurado. NO agregues showroom polish. El carácter "vivido" del vehículo es el punto.`,
+    ``,
+    `CAMBIOS PERMITIDOS (solamente estos — nada más):`,
+    hasDirt
+      ? `1. Quitá SOLO polvo, polen o gotas de agua RECIÉN DEPOSITADAS de PANELES HORIZONTALES DEL CUERPO (capó, techo, baúl): ${dirt}. NUNCA toques llantas, lados, bumpers, ni ninguna superficie vertical. Si hay duda, dejalo.`
+      : `1. NO se permite ninguna limpieza en esta imagen. No remuevas suciedad, polvo ni marcas del auto. El auto queda tal cual.`,
+    `2. Neutralizá reflejos y brillos no deseados solo en la pintura del cuerpo: ${reflections}. Mantené reflejos metálicos realistas en la pintura. No toques llantas ni trim.`,
+    `3. Corregí la exposición global para que la escena quede pareja (${c.lighting || "balanceá highlights y sombras"}). Ajustá iluminación, no superficies. NO repintes, NO recolores, NO suavices, NO retoques.`,
+    `4. Reemplazá SOLO EL FONDO ORIGINAL (todo lo que NO es el auto) por un estudio fotográfico virtual: cyclorama blanco roto seamless, piso gris claro con un reflejo sutil y realista del auto, luz suave de softbox cenital, sombra suave controlada bajo el vehículo.`,
+    `5. Cubrí ÚNICAMENTE la patente${p.location ? ` (ubicada en ${p.location})` : ""} con un rectángulo oscuro pequeño que contenga centrado el texto "${logoLabel}" en tipografía sans-serif blanca, minimalista y limpia. No cubras nada más.`,
+    ``,
+    `CHEQUEO FINAL antes de emitir la imagen: compará el auto del output contra el input pixel por pixel. El auto en sí — pintura, llantas, defectos, suciedad en lados del cuerpo y en llantas — debe ser visualmente indistinguible del input. Solo el fondo, el cuadro sobre la patente y la exposición pueden diferir. Resultado fotorrealista de DSLR, no un render 3D.`,
+  ].join("\n");
+};
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
@@ -120,8 +180,9 @@ export default {
         if (!body.image) return json({ error: "missing image" }, 400, cors);
         const analysis = await analyzeWithOpenAI(env, body.image, body.mime);
         const prompt = buildEditPrompt(analysis, body.logoText);
+        const promptEs = buildEditPromptEs(analysis, body.logoText);
         const image = await editWithNanoBanana(env, body.image, body.mime, prompt);
-        return json({ image, analysis, promptUsed: prompt, editor: "gemini-2.5-flash-image" }, 200, cors);
+        return json({ image, analysis, promptUsed: prompt, promptUsedEs: promptEs, editor: "gemini-2.5-flash-image" }, 200, cors);
       }
 
       return json({ error: "unknown action" }, 400, cors);

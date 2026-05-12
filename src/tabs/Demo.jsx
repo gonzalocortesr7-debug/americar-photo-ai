@@ -36,6 +36,7 @@ export default function Demo() {
   const [analysis, setAnalysis] = useState(null);
   const [resultB64, setResultB64] = useState(null);
   const [promptUsed, setPromptUsed] = useState("");
+  const [promptUsedEs, setPromptUsedEs] = useState("");
   const [editedPrompt, setEditedPrompt] = useState("");
   const [regenLoading, setRegenLoading] = useState(false);
   const [error, setError] = useState("");
@@ -47,7 +48,7 @@ export default function Demo() {
     const f = e.target.files?.[0];
     if (!f) return;
     setError(""); setAnalysis(null); setResultB64(null);
-    setPromptUsed(""); setEditedPrompt(""); setPhase("idle");
+    setPromptUsed(""); setPromptUsedEs(""); setEditedPrompt(""); setPhase("idle");
     setFile(f); setMime(f.type); setPreview(URL.createObjectURL(f));
     const r = new FileReader();
     r.onload = () => { const s = r.result; setImageB64(s.substring(s.indexOf(",") + 1)); };
@@ -71,6 +72,7 @@ export default function Demo() {
       setAnalysis(data.analysis);
       setResultB64(data.image);
       setPromptUsed(data.promptUsed || "");
+      setPromptUsedEs(data.promptUsedEs || "");
       setEditedPrompt(data.promptUsed || "");
       setPhase("done");
     } catch (e) {
@@ -117,7 +119,7 @@ export default function Demo() {
   const reset = () => {
     setFile(null); setImageB64(null); setPreview(null); setMime(null);
     setAnalysis(null); setResultB64(null);
-    setPromptUsed(""); setEditedPrompt(""); setRegenLoading(false);
+    setPromptUsed(""); setPromptUsedEs(""); setEditedPrompt(""); setRegenLoading(false);
     setPhase("idle"); setError("");
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -265,6 +267,7 @@ export default function Demo() {
               {promptUsed && (
                 <PromptEditor
                   promptUsed={promptUsed}
+                  promptUsedEs={promptUsedEs}
                   editedPrompt={editedPrompt}
                   setEditedPrompt={setEditedPrompt}
                   onRegenerate={regenerate}
@@ -474,8 +477,14 @@ function ChangesApplied({ analysis }) {
   );
 }
 
-function PromptEditor({ promptUsed, editedPrompt, setEditedPrompt, onRegenerate, onRestore, onCopy, loading }) {
+function PromptEditor({ promptUsed, promptUsedEs, editedPrompt, setEditedPrompt, onRegenerate, onRestore, onCopy, loading }) {
+  const [lang, setLang] = useState("en");
   const dirty = editedPrompt !== promptUsed;
+  const isEn = lang === "en";
+  const copyActive = () => {
+    const text = isEn ? editedPrompt : (promptUsedEs || "");
+    navigator.clipboard?.writeText(text).catch(() => {});
+  };
   return (
     <details open className="rounded-xl bg-slate-950 border border-brand-700/40 p-4">
       <summary className="cursor-pointer flex items-center justify-between gap-3 flex-wrap">
@@ -487,20 +496,63 @@ function PromptEditor({ promptUsed, editedPrompt, setEditedPrompt, onRegenerate,
             </span>
           )}
         </div>
-        <span className="text-[11px] text-slate-500">Editalo y volvé a generar para probar cambios puntuales.</span>
+        <span className="text-[11px] text-slate-500">Editalo (en inglés) y volvé a generar para probar cambios puntuales.</span>
       </summary>
       <div className="mt-3 space-y-3">
-        <textarea
-          value={editedPrompt}
-          onChange={(e) => setEditedPrompt(e.target.value)}
-          spellCheck={false}
-          rows={14}
-          className="w-full bg-slate-900 border border-slate-800 rounded-md px-3 py-2 text-xs font-mono text-slate-200 leading-relaxed resize-y focus:outline-none focus:border-brand-500"
-        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex rounded-md bg-slate-900 border border-slate-800 p-0.5">
+            <button
+              type="button"
+              onClick={() => setLang("en")}
+              className={
+                "px-3 py-1 text-xs font-semibold rounded " +
+                (isEn ? "bg-brand-500 text-white" : "text-slate-400 hover:text-slate-200")
+              }
+            >
+              Inglés (enviado)
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang("es")}
+              disabled={!promptUsedEs}
+              className={
+                "px-3 py-1 text-xs font-semibold rounded disabled:opacity-40 disabled:cursor-not-allowed " +
+                (!isEn ? "bg-brand-500 text-white" : "text-slate-400 hover:text-slate-200")
+              }
+            >
+              Español (referencia)
+            </button>
+          </div>
+          <span className="text-[11px] text-slate-500">
+            {isEn
+              ? "Este es el prompt real que se envía al modelo. Editable y regenerable."
+              : "Traducción literal del prompt enviado. Solo lectura — para regenerar usá la pestaña en inglés."}
+          </span>
+        </div>
+
+        {isEn ? (
+          <textarea
+            value={editedPrompt}
+            onChange={(e) => setEditedPrompt(e.target.value)}
+            spellCheck={false}
+            rows={14}
+            className="w-full bg-slate-900 border border-slate-800 rounded-md px-3 py-2 text-xs font-mono text-slate-200 leading-relaxed resize-y focus:outline-none focus:border-brand-500"
+          />
+        ) : (
+          <textarea
+            value={promptUsedEs}
+            readOnly
+            spellCheck={false}
+            rows={14}
+            className="w-full bg-slate-900 border border-slate-800 rounded-md px-3 py-2 text-xs font-mono text-slate-300 leading-relaxed resize-y focus:outline-none cursor-text"
+          />
+        )}
+
         <div className="flex gap-2 flex-wrap items-center">
           <button
             onClick={onRegenerate}
-            disabled={loading || !editedPrompt.trim()}
+            disabled={loading || !editedPrompt.trim() || !isEn}
+            title={!isEn ? "Cambiá a la pestaña Inglés para regenerar" : undefined}
             className="bg-brand-500 hover:bg-brand-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg text-sm inline-flex items-center gap-2"
           >
             {loading ? (
@@ -514,24 +566,25 @@ function PromptEditor({ promptUsed, editedPrompt, setEditedPrompt, onRegenerate,
           </button>
           <button
             onClick={onRestore}
-            disabled={!dirty || loading}
+            disabled={!dirty || loading || !isEn}
             className="border border-slate-700 hover:border-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 px-4 py-2 rounded-lg text-sm"
           >
             Restaurar prompt original
           </button>
           <button
-            onClick={onCopy}
+            onClick={copyActive}
             disabled={loading}
             className="border border-slate-700 hover:border-brand-500 text-slate-300 px-4 py-2 rounded-lg text-sm"
           >
-            Copiar
+            Copiar {isEn ? "inglés" : "español"}
           </button>
           <span className="text-[11px] text-slate-500 ml-auto">
-            {editedPrompt.length.toLocaleString("es-CL")} caracteres
+            {(isEn ? editedPrompt : (promptUsedEs || "")).length.toLocaleString("es-CL")} caracteres
           </span>
         </div>
         <p className="text-[11px] text-slate-500 leading-relaxed">
-          Al regenerar se reutiliza la <strong>misma foto original</strong> y este prompt — no se vuelve a llamar al análisis con GPT-4o, así que es rápido y barato (solo costo de Nano Banana).
+          Al regenerar se reutiliza la <strong>misma foto original</strong> y el prompt en inglés — no se vuelve a llamar al análisis con GPT-4o, así que es rápido y barato (solo costo de Nano Banana).
+          La versión en español se genera en el worker en paralelo y refleja exactamente la estructura del prompt enviado (preservación estricta del auto, llantas intocables, etc.).
         </p>
       </div>
     </details>
