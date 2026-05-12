@@ -4,9 +4,15 @@ const ALLOWED_ORIGINS = [
   "http://127.0.0.1:5173",
 ];
 
-const ANALYZE_INSTRUCTION = `You are an automotive photo inspector. Look at the input car photo and return ONLY valid JSON (no markdown, no backticks).
+const ANALYZE_INSTRUCTION = `You are an automotive photo inspector for a USED-CAR dealership. Your output drives a pipeline that must KEEP THE CAR LOOKING USED. Return ONLY valid JSON (no markdown, no backticks).
 
-Do NOT write a generation prompt. Just describe the scene factually so a compositing pipeline can clean it.
+Do NOT write a generation prompt. Just describe the scene factually.
+
+CLASSIFICATION RULES — read these carefully before filling the JSON:
+- "existingWear" is the DEFAULT bucket. Anything that has been on the car for more than a few hours, anything that belongs to the car's history, anything that is part of the wheels/tires/rims/brakes — goes here. It MUST be preserved.
+- "dirtAreas" is RESTRICTIVE: only fresh, recently-deposited dust, pollen or water droplets on HORIZONTAL BODY PANELS (hood, roof, trunk lid). Nothing else qualifies.
+- If unsure whether something is "dirt" or "wear" → classify as "existingWear". The pipeline preserves wear; misclassifying as dirt would erase real condition.
+- NEVER put any of these in "dirtAreas": dirty wheels, dusty rims, brake dust on calipers/rotors, tire grime, mud splatter, dirty wheel arches, scratches, chips, dents, faded paint, rust, oxidation, swirl marks, scuffs, accumulated grime, anything on a vertical body panel.
 
 Structure:
 {
@@ -16,8 +22,9 @@ Structure:
    "describe":"one short sentence describing which side of the car faces the camera (e.g. 'the driver headlight is on the right of the frame; the car faces the camera from its front-left 3/4')"
  },
  "condition":{
-   "existingWear":["list visible scratches, chips, dents, tire wear, rust, faded paint — MUST be preserved as-is"],
-   "dirtAreas":["list areas with removable dirt only: dust, mud, water spots, pollen, grime"],
+   "existingWear":["EVERYTHING that must be preserved: scratches, chips, dents, faded paint, rust, oxidation, swirl marks, scuffs, AND ALSO the current state of the wheels (rim condition, brake dust, tire grime, tire wear, dirty wheel arches), AND any accumulated dirt on bumpers/sides/lower body. Be exhaustive — this list protects the used-car identity."],
+   "wheelsState":"short factual description of the wheels as-is (e.g. 'alloy rims with brake dust on front-right, tires slightly dirty, small curb rash on front-right rim'). Whatever you write here, the pipeline will preserve untouched.",
+   "dirtAreas":["RESTRICTIVE: only fresh dust/pollen/water droplets on horizontal body panels (hood, roof, trunk lid). Leave empty [] if there is nothing that clearly fits. Do NOT list wheels, sides, lower body, defects, or anything ambiguous."],
    "reflections":["list unwanted reflections/glare to neutralize: sun hotspots, person reflections, signage, sky glare"],
    "lighting":"short description of current lighting issues"
  },
@@ -30,20 +37,32 @@ const buildEditPrompt = (analysis, logoText) => {
   const c = analysis?.condition || {};
   const p = analysis?.plate || {};
   const wear = (c.existingWear || []).join("; ") || "all existing wear";
-  const dirt = (c.dirtAreas || []).join("; ") || "surface dust and grime";
+  const wheels = (c.wheelsState || "").trim() || "the wheels exactly as shown in the input — same dirt, same brake dust, same tire grime, same rim condition";
+  const dirtList = (c.dirtAreas || []).filter(Boolean);
+  const dirt = dirtList.length
+    ? dirtList.join("; ")
+    : "(none — leave the car untouched, do not clean anything)";
+  const hasDirt = dirtList.length > 0;
   const reflections = (c.reflections || []).join("; ") || "unwanted glare and reflections";
   const logoLabel = (logoText || "").trim() || "AMERICAR";
 
   return [
-    `Edit this exact photo of a ${v.color || ""} ${v.brand || ""} ${v.model || ""}. This is a real used car on a dealership lot — keep it that way.`,
+    `Edit this exact photo of a ${v.color || ""} ${v.brand || ""} ${v.model || ""}. This is a REAL USED CAR on a dealership lot — the customer needs to see exactly how this specific unit looks today, not an idealized version.`,
     ``,
-    `PAINT COLOR — ABSOLUTE RULE (THIS IS THE MOST IMPORTANT INSTRUCTION):`,
+    `USED-CAR INTEGRITY — TOP RULE (overrides every other instruction):`,
+    `- The car must come out of this edit looking IDENTICAL to the input in every aspect of its physical condition.`,
+    `- DO NOT clean, polish, repair, restore, refresh, or "improve" the car in any way.`,
+    `- DO NOT remove or attenuate ANY defect: scratches, chips, dents, swirl marks, paint fading, oxidation, rust, stone marks, bumper scuffs, curb rash. ALL stay, in the same place, with the same visibility.`,
+    `- DO NOT touch the wheels under any circumstance. Wheels, rims, tires, brake calipers, brake discs, wheel arches and any dirt/dust/grime on them MUST remain exactly as in the input. Current wheel state: ${wheels}. The pipeline will reject any output where the wheels look cleaner, newer, or different in any way.`,
+    `- DO NOT touch the lower body, sides, bumpers, or rocker panels. Any accumulated dirt or grime there stays.`,
+    `- If you are unsure whether a mark on the car is dirt or wear → LEAVE IT AS-IS. Default to preservation.`,
+    ``,
+    `PAINT COLOR — ABSOLUTE RULE:`,
     `- The car's exact paint color is "${v.color || "as shown in the input"}".`,
     `- DO NOT change the hue, saturation, tone, or finish of the paint UNDER ANY CIRCUMSTANCE.`,
     `- DO NOT convert dark blue, dark green, dark charcoal grey or any dark color into black.`,
     `- DO NOT brighten, darken, shift, or "improve" the paint color in any way.`,
     `- Copy the paint color directly from the input image pixels — do not interpret, normalize, or stylize it.`,
-    `- If the input shows a "${v.color || "specific colored"}" car, the output MUST show the SAME "${v.color || "color"}" — pixel-faithful to the original.`,
     ``,
     `ORIENTATION (ABSOLUTE RULES — breaking any of these ruins the output):`,
     `- The visible side is "${o.visibleSide || "same as input"}". ${o.describe || ""}`,
@@ -52,21 +71,23 @@ const buildEditPrompt = (analysis, logoText) => {
     `- If the driver's headlight is on the right of the frame in the input, it MUST be on the right of the frame in the output.`,
     `- Output the SAME SIDE of the car as the input. Never swap left and right.`,
     ``,
-    `PRESERVATION (the output must look like the SAME used vehicle, NOT a new one):`,
+    `EXPLICIT PRESERVATION CHECKLIST (the output must look like the SAME used vehicle, NOT a new one):`,
     `- Keep every sign of age and use: ${wear}.`,
-    `- Keep current paint condition, any existing scratches, chips, bumper scuffs, faded areas, stone marks.`,
-    `- Keep the existing wheels exactly as they are (same rims, same tire wear, same brake dust pattern). Do not replace, re-style, or polish them.`,
+    `- Keep current paint condition: every existing scratch, chip, bumper scuff, faded area, stone mark stays in place.`,
+    `- Keep the wheels EXACTLY as in the input: ${wheels}. Same rims, same tire wear, same brake dust pattern, same wheel arch dirt. No polishing.`,
     `- Keep the original body shape, proportions, trim, grille, headlights, mirrors, roof, window tint. No restyling.`,
-    `- Do NOT make the car look newer, shinier or restored. Do NOT add showroom polish.`,
+    `- Do NOT make the car look newer, shinier or restored. Do NOT add showroom polish. The vehicle's lived-in character is the point.`,
     ``,
     `ALLOWED CHANGES (only these — nothing else):`,
-    `1. Remove removable dirt only: ${dirt}. A car wash would remove it; restoration work would not.`,
-    `2. Neutralize unwanted reflections and glare: ${reflections}. Keep realistic metallic paint reflections.`,
-    `3. Correct lighting so the car is evenly exposed (${c.lighting || "balance highlights and shadows"}). Do not re-paint, do not re-color.`,
+    hasDirt
+      ? `1. Remove ONLY recent, loose dust/pollen/water droplets from HORIZONTAL BODY PANELS (hood, roof, trunk lid): ${dirt}. NEVER touch wheels, sides, bumpers, or any vertical surface. If in doubt, leave it.`
+      : `1. NO cleaning is allowed in this image. Do not remove any dirt, dust, or marks from the car. The car stays as-is.`,
+    `2. Neutralize unwanted reflections and glare on body paint only: ${reflections}. Keep realistic metallic paint reflections. Do not touch wheels or trim.`,
+    `3. Correct global exposure so the scene is evenly lit (${c.lighting || "balance highlights and shadows"}). Adjust lighting, not surfaces. Do not re-paint, do not re-color, do not smooth, do not retouch.`,
     `4. Replace the ORIGINAL BACKGROUND ONLY (everything that is NOT the car) with a virtual photo studio: near-white seamless cyclorama backdrop, light grey floor with a subtle realistic reflection of the car, soft overhead studio softbox lighting, controlled soft shadow under the vehicle.`,
     `5. Cover ONLY the license plate${p.location ? ` (located at ${p.location})` : ""} with a small dark rectangle containing the centered text "${logoLabel}" in clean minimalist white sans-serif typography. Do not cover anything else.`,
     ``,
-    `OUTPUT: the SAME car, in the SAME orientation, WITH THE EXACT SAME PAINT COLOR as the input photo, with clean surfaces, corrected lighting, studio background and covered plate. Photorealistic DSLR result, not a 3D render.`,
+    `FINAL CHECK before emitting the image: compare the car in your output against the input pixel-by-pixel. The car itself — paint, wheels, defects, dirt on body sides and wheels — must be visually indistinguishable from the input. Only the background, plate cover, and exposure should differ. Photorealistic DSLR result, not a 3D render.`,
   ].join("\n");
 };
 
